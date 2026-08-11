@@ -73,6 +73,26 @@ test('registers, restores protected access, and handles both session durations',
   await expect(page.getByText(copy.countryName)).toBeVisible();
   await expect(page.getByText(copy.login)).toBeVisible();
   await expect(page.locator('.world-renderer canvas')).toBeVisible();
+  const mapBounds = await page.locator('.game-shell__map-region').evaluate((element) => {
+    const bounds = element.getBoundingClientRect();
+
+    return {
+      height: bounds.height,
+      left: bounds.left,
+      top: bounds.top,
+      viewportHeight: window.innerHeight,
+      viewportWidth: window.innerWidth,
+      width: bounds.width,
+    };
+  });
+  expect(mapBounds).toEqual({
+    height: mapBounds.viewportHeight,
+    left: 0,
+    top: 0,
+    viewportHeight: mapBounds.viewportHeight,
+    viewportWidth: mapBounds.viewportWidth,
+    width: mapBounds.viewportWidth,
+  });
   await page.screenshot({ path: testInfo.outputPath('world-map.png'), fullPage: false });
   expect(
     await page.evaluate(() => ({ local: Object.keys(localStorage), session: Object.keys(sessionStorage) })),

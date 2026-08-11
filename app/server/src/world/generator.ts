@@ -209,7 +209,9 @@ function raiseLandmass(
 
     const falloff = 1 - distance / radius;
     const variation = noise(cell.q / 7 + 213, cell.r / 7 - 89) * 65;
-    const elevation = seaLevel + 16 + falloff * 420 + variation;
+    // Keep generated land connected before explicit sea and lake carving. Without this
+    // margin, negative noise near a landmass edge creates accidental water pockets.
+    const elevation = seaLevel + 80 + falloff * 356 + variation;
 
     if (elevation > cell.elevation) {
       cell.elevation = clampInteger(elevation);
@@ -368,7 +370,10 @@ function assignWaterBodies(
   }
 
   if (records.filter((record) => record.kind === 'lake').length !== configuration.lakeCount) {
-    throw new Error(`World generation did not produce ${configuration.lakeCount} lakes.`);
+    const actualLakeCount = records.filter((record) => record.kind === 'lake').length;
+    throw new Error(
+      `World generation did not produce ${configuration.lakeCount} lakes; produced ${actualLakeCount}.`,
+    );
   }
 
   for (const cell of cells) {

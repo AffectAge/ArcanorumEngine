@@ -52,8 +52,27 @@ export function GameShellPage() {
 
   return (
     <main className="game-shell" aria-label={t('game.shellLabel')}>
-      <header className="game-shell__header">
-        <div>
+      <section className="game-shell__map-region" aria-label={t('game.map.regionLabel')}>
+        {worldError === undefined && world === undefined ? (
+          <p className="game-shell__map-status" aria-live="polite">
+            {t('game.map.loading')}
+          </p>
+        ) : null}
+        {worldError !== undefined ? (
+          <p className="game-shell__map-error" role="alert">
+            {t('game.map.error')}: {worldError}
+          </p>
+        ) : null}
+        {world === undefined ? null : (
+          <WorldRenderer
+            world={world}
+            ariaLabel={t('game.map.canvasLabel', { worldName: world.worldName })}
+            failureLabel={t('game.map.renderError')}
+          />
+        )}
+      </section>
+      <header className="game-shell__hud">
+        <div className="game-shell__identity-panel">
           <p className="game-shell__eyebrow">{t('app.name')}</p>
           <dl className="game-shell__identity">
             <div>
@@ -75,25 +94,6 @@ export function GameShellPage() {
           </Button>
         </div>
       </header>
-      <section className="game-shell__map-region" aria-label={t('game.map.regionLabel')}>
-        {worldError === undefined && world === undefined ? (
-          <p className="game-shell__map-status" aria-live="polite">
-            {t('game.map.loading')}
-          </p>
-        ) : null}
-        {worldError !== undefined ? (
-          <p className="game-shell__map-error" role="alert">
-            {t('game.map.error')}: {worldError}
-          </p>
-        ) : null}
-        {world === undefined ? null : (
-          <WorldRenderer
-            world={world}
-            ariaLabel={t('game.map.canvasLabel', { worldName: world.worldName })}
-            failureLabel={t('game.map.renderError')}
-          />
-        )}
-      </section>
     </main>
   );
 }

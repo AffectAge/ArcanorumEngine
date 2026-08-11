@@ -10,8 +10,8 @@
     "name": "Arcanorum",
     "seed": "auto",
     "generation": {
-      "width": 96,
-      "height": 64,
+      "width": 384,
+      "height": 256,
       "continentCount": 3,
       "continentCoverage": 0.38,
       "continentMinimumSeparation": 24,
