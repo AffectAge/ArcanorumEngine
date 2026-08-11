@@ -68,6 +68,38 @@ describe('authentication API', () => {
     expect(response.headers['set-cookie']).not.toContain('Max-Age');
   });
 
+  it('serves the persisted generated world only to an authenticated player', async () => {
+    app = await createApp({ config: TEST_CONFIG });
+    const unauthenticated = await app.inject({ method: 'GET', url: '/api/world/map' });
+    expect(unauthenticated.statusCode).toBe(401);
+
+    const registrationResponse = await app.inject({
+      method: 'POST',
+      url: '/api/auth/register',
+      headers: originHeaders,
+      payload: registration,
+    });
+    const worldResponse = await app.inject({
+      method: 'GET',
+      url: '/api/world/map',
+      headers: { cookie: cookieHeader(registrationResponse.headers['set-cookie']) },
+    });
+
+    expect(worldResponse.statusCode).toBe(200);
+    expect(worldResponse.json()).toMatchObject({
+      worldName: 'Test world',
+      seed: 'test-seed',
+      map: {
+        width: 48,
+        height: 36,
+        hexes: expect.any(Array),
+        rivers: expect.any(Array),
+      },
+    });
+    expect(worldResponse.json().map.hexes).toHaveLength(48 * 36);
+    expect(worldResponse.json().map.rivers.length).toBeGreaterThan(0);
+  });
+
   it('rejects duplicate country names using their normalized identity', async () => {
     app = await createApp({ config: TEST_CONFIG });
     await app.inject({

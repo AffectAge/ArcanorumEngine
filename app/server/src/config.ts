@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { resolve } from 'node:path';
+import { isAbsolute, resolve } from 'node:path';
 import { z } from 'zod';
 
 export const PROJECT_ROOT = fileURLToPath(new URL('../../../', import.meta.url));
@@ -104,13 +104,16 @@ export type ServerConfig = {
 export function readServerConfiguration(
   configurationPath: string = DEFAULT_SERVER_CONFIGURATION_PATH,
 ): ServerConfiguration {
+  const resolvedConfigurationPath = isAbsolute(configurationPath)
+    ? configurationPath
+    : resolve(PROJECT_ROOT, configurationPath);
   let source: unknown;
 
   try {
-    source = JSON.parse(readFileSync(configurationPath, 'utf8'));
+    source = JSON.parse(readFileSync(resolvedConfigurationPath, 'utf8'));
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
-    throw new Error(`Unable to read server configuration at ${configurationPath}: ${reason}`);
+    throw new Error(`Unable to read server configuration at ${resolvedConfigurationPath}: ${reason}`);
   }
 
   return ServerConfigurationSchema.parse(source);
@@ -135,9 +138,7 @@ export function parseServerConfig(
     bindHost: configuration.server.bindHost,
     allowedOrigins: configuration.server.allowedOrigins,
     worldPath:
-      configuration.world.path === ':memory:'
-        ? ':memory:'
-        : resolve(PROJECT_ROOT, configuration.world.path),
+      configuration.world.path === ':memory:' ? ':memory:' : resolve(PROJECT_ROOT, configuration.world.path),
     worldAutoCreate: configuration.world.autoCreate,
     worldName: configuration.world.name,
     worldSeed: configuration.world.seed,

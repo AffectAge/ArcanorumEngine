@@ -1,7 +1,11 @@
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import type { WorldMapResponse } from '@arcanorum/shared';
+import { getWorldMap } from '../../api/world-api.js';
 import { useAuthStore } from '../../state/auth-store.js';
 import { Button } from '../../ui/Button.js';
+import { WorldRenderer } from '../world/WorldRenderer.js';
 
 export function GameShellPage() {
   const { t } = useTranslation();
@@ -9,6 +13,28 @@ export function GameShellPage() {
   const player = useAuthStore((state) => state.player);
   const logout = useAuthStore((state) => state.logout);
   const logoutAll = useAuthStore((state) => state.logoutAll);
+  const [world, setWorld] = useState<WorldMapResponse | undefined>();
+  const [worldError, setWorldError] = useState<string | undefined>();
+
+  useEffect(() => {
+    let active = true;
+
+    void getWorldMap()
+      .then((loadedWorld) => {
+        if (active) {
+          setWorld(loadedWorld);
+        }
+      })
+      .catch((error: unknown) => {
+        if (active) {
+          setWorldError(error instanceof Error ? error.message : String(error));
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   if (player === undefined) {
     return null;
@@ -49,6 +75,25 @@ export function GameShellPage() {
           </Button>
         </div>
       </header>
+      <section className="game-shell__map-region" aria-label={t('game.map.regionLabel')}>
+        {worldError === undefined && world === undefined ? (
+          <p className="game-shell__map-status" aria-live="polite">
+            {t('game.map.loading')}
+          </p>
+        ) : null}
+        {worldError !== undefined ? (
+          <p className="game-shell__map-error" role="alert">
+            {t('game.map.error')}: {worldError}
+          </p>
+        ) : null}
+        {world === undefined ? null : (
+          <WorldRenderer
+            world={world}
+            ariaLabel={t('game.map.canvasLabel', { worldName: world.worldName })}
+            failureLabel={t('game.map.renderError')}
+          />
+        )}
+      </section>
     </main>
   );
 }

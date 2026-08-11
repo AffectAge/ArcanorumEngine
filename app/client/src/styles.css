@@ -299,7 +299,11 @@ a:focus-visible {
 }
 
 .game-shell {
-  padding: clamp(1rem, 4vw, 2.5rem);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: var(--arc-space-3);
+  min-height: 100vh;
+  padding: clamp(1rem, 3vw, 2rem);
 }
 
 .game-shell__header {
@@ -340,6 +344,43 @@ a:focus-visible {
   flex-wrap: wrap;
   justify-content: end;
   gap: var(--arc-space-2);
+}
+
+.game-shell__map-region {
+  position: relative;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid var(--arc-ui-border);
+  background: #000;
+}
+
+.world-renderer {
+  width: 100%;
+  height: 100%;
+  min-height: 32rem;
+  touch-action: none;
+}
+
+.world-renderer canvas {
+  display: block;
+}
+
+.game-shell__map-status,
+.game-shell__map-error,
+.world-renderer__error {
+  display: grid;
+  min-height: 20rem;
+  place-items: center;
+  margin: 0;
+  padding: var(--arc-space-4);
+  color: var(--arc-ui-text-muted);
+  text-align: center;
+}
+
+.game-shell__map-error,
+.world-renderer__error {
+  border-inline-start: 3px solid var(--arc-ui-danger);
+  color: var(--arc-ui-text);
 }
 
 @keyframes button-spin {

@@ -72,6 +72,8 @@ test('registers, restores protected access, and handles both session durations',
   await expect(page).toHaveURL(/\/game$/);
   await expect(page.getByText(copy.countryName)).toBeVisible();
   await expect(page.getByText(copy.login)).toBeVisible();
+  await expect(page.locator('.world-renderer canvas')).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath('world-map.png'), fullPage: false });
   expect(
     await page.evaluate(() => ({ local: Object.keys(localStorage), session: Object.keys(sessionStorage) })),
   ).toEqual({

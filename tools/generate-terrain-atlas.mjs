@@ -3,15 +3,30 @@ import { mkdir } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { chromium } from '@playwright/test';
 
-const outputPath = resolve('app/client/public/assets/world/terrain/terrain-atlas.webp');
-const chromePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE ?? 'C:/Program Files/Google/Chrome/Application/chrome.exe';
+const terrainOutputPath = resolve('app/client/public/assets/world/terrain/terrain-atlas.webp');
+const riverOutputPath = resolve('app/client/public/assets/world/terrain/river-atlas.webp');
+const chromePath =
+  process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE ?? 'C:/Program Files/Google/Chrome/Application/chrome.exe';
 const browser = await chromium.launch(existsSync(chromePath) ? { executablePath: chromePath } : {});
 
 try {
   const page = await browser.newPage({ viewport: { width: 480, height: 84 }, deviceScaleFactor: 1 });
   await page.setContent(terrainAtlasSvg());
-  await mkdir(dirname(outputPath), { recursive: true });
-  await page.screenshot({ path: outputPath, type: 'webp', omitBackground: true, animations: 'disabled' });
+  await mkdir(dirname(terrainOutputPath), { recursive: true });
+  await page.screenshot({
+    path: terrainOutputPath,
+    type: 'webp',
+    omitBackground: true,
+    animations: 'disabled',
+  });
+  await page.setViewportSize({ width: 768, height: 672 });
+  await page.setContent(riverAtlasSvg());
+  await page.screenshot({
+    path: riverOutputPath,
+    type: 'webp',
+    omitBackground: true,
+    animations: 'disabled',
+  });
 } finally {
   await browser.close();
 }
@@ -57,6 +72,40 @@ function terrainAtlasSvg() {
             <circle cx="2" cy="3" r="1" fill="#303f25" opacity=".7"/>
           </pattern>
         </defs>
+        ${frames}
+      </svg>
+    </body></html>`;
+}
+
+function riverAtlasSvg() {
+  const edgeCenters = [
+    [48, 0],
+    [84, 21],
+    [84, 63],
+    [48, 84],
+    [12, 63],
+    [12, 21],
+  ];
+  const frames = Array.from({ length: 64 }, (_, mask) => {
+    const column = mask % 8;
+    const row = Math.floor(mask / 8);
+    const paths = edgeCenters
+      .map(([x, y], direction) =>
+        (mask & (1 << direction)) === 0
+          ? ''
+          : `<path d="M48 42 L${x} ${y}" fill="none" stroke="#062d45" stroke-width="8" stroke-linecap="round" />
+             <path d="M48 42 L${x} ${y}" fill="none" stroke="#4db5d2" stroke-width="4" stroke-linecap="round" />
+             <path d="M48 42 L${x} ${y}" fill="none" stroke="#d2f5ff" stroke-width="1" stroke-linecap="round" opacity=".8" />`,
+      )
+      .join('');
+    const junction = mask === 0 ? '' : '<circle cx="48" cy="42" r="3" fill="#4db5d2" />';
+
+    return `<g transform="translate(${column * 96},${row * 84})">${paths}${junction}</g>`;
+  }).join('');
+
+  return `<!doctype html>
+    <html><body style="margin:0;background:transparent;overflow:hidden">
+      <svg xmlns="http://www.w3.org/2000/svg" width="768" height="672" viewBox="0 0 768 672">
         ${frames}
       </svg>
     </body></html>`;

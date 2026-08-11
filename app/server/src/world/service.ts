@@ -121,7 +121,9 @@ export class WorldService {
     }
 
     if (worldRowCount.count === 0) {
-      throw new Error('Existing world database contains no map hexes. Startup stopped to prevent regeneration.');
+      throw new Error(
+        'Existing world database contains no map hexes. Startup stopped to prevent regeneration.',
+      );
     }
 
     const seed = this.database

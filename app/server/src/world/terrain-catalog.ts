@@ -31,12 +31,14 @@ export function loadTerrainCatalog(): LoadedTerrainCatalog {
   }
 
   const catalog = TerrainCatalogSchema.parse(source);
-  const assetPath = resolve(CLIENT_PUBLIC_PATH, `.${catalog.atlas.url}`);
-  if (!assetPath.startsWith(`${CLIENT_PUBLIC_PATH}\\`) && !assetPath.startsWith(`${CLIENT_PUBLIC_PATH}/`)) {
-    throw new Error(`Terrain atlas escapes the public asset directory: ${catalog.atlas.url}`);
-  }
-  if (!existsSync(assetPath)) {
-    throw new Error(`Required terrain atlas is missing: ${assetPath}`);
+  for (const asset of [catalog.atlas, ...catalog.overlays]) {
+    const assetPath = resolve(CLIENT_PUBLIC_PATH, `.${asset.url}`);
+    if (!assetPath.startsWith(`${CLIENT_PUBLIC_PATH}\\`) && !assetPath.startsWith(`${CLIENT_PUBLIC_PATH}/`)) {
+      throw new Error(`World renderer asset escapes the public directory: ${asset.url}`);
+    }
+    if (!existsSync(assetPath)) {
+      throw new Error(`Required world renderer asset is missing: ${assetPath}`);
+    }
   }
 
   return {

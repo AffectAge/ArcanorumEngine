@@ -75,10 +75,7 @@ export async function createApp(options: CreateAppOptions): Promise<FastifyInsta
   });
 
   app.get('/api/world/map', async (request, reply) => {
-    authService.getActiveSession(
-      request.cookies[getSessionCookieName(options.config)],
-      now(),
-    );
+    authService.getActiveSession(request.cookies[getSessionCookieName(options.config)], now());
     return reply.send(worldService.getMap());
   });
 

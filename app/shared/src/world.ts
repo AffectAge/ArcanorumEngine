@@ -12,6 +12,21 @@ export const TerrainAtlasSchema = z
   })
   .strict();
 
+export const WorldOverlayAtlasSchema = z
+  .object({
+    id: StableIdSchema,
+    role: z.enum(['river']),
+    key: StableIdSchema,
+    url: z.string().regex(/^\/assets\/.+\.webp$/),
+    frameWidth: z.number().int().positive(),
+    frameHeight: z.number().int().positive(),
+    columns: z.number().int().positive(),
+    rows: z.number().int().positive(),
+  })
+  .strict();
+
+export type WorldOverlayAtlas = z.infer<typeof WorldOverlayAtlasSchema>;
+
 export const TerrainTypeSchema = z
   .object({
     id: StableIdSchema,
@@ -25,12 +40,14 @@ export const TerrainCatalogSchema = z
   .object({
     atlas: TerrainAtlasSchema,
     terrainTypes: z.array(TerrainTypeSchema).min(1),
+    overlays: z.array(WorldOverlayAtlasSchema),
   })
   .strict()
   .superRefine((catalog, context) => {
     const ids = new Set<string>();
     const frames = new Set<number>();
     const roles = new Set<string>();
+    const overlayRoles = new Set<string>();
 
     for (const terrainType of catalog.terrainTypes) {
       if (ids.has(terrainType.id)) {
@@ -77,6 +94,33 @@ export const TerrainCatalogSchema = z
           path: ['terrainTypes'],
         });
       }
+    }
+
+    for (const overlay of catalog.overlays) {
+      if (overlayRoles.has(overlay.role)) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `Duplicate overlay role: ${overlay.role}`,
+          path: ['overlays'],
+        });
+      }
+      overlayRoles.add(overlay.role);
+
+      if (overlay.columns * overlay.rows < 64) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `Overlay atlas ${overlay.id} must provide at least 64 frames.`,
+          path: ['overlays'],
+        });
+      }
+    }
+
+    if (!overlayRoles.has('river')) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Missing required overlay role: river',
+        path: ['overlays'],
+      });
     }
   });
 

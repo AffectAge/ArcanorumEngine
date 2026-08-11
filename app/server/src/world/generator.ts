@@ -162,14 +162,30 @@ function selectCenters(
     ),
     random,
   );
-  const centers: HexCoordinate[] = [];
+  for (const firstCenter of candidates) {
+    const centers: HexCoordinate[] = [{ q: firstCenter.q, r: firstCenter.r }];
 
-  for (const candidate of candidates) {
-    if (centers.every((center) => hexDistance(center, candidate) >= minimumSeparation)) {
-      centers.push({ q: candidate.q, r: candidate.r });
-      if (centers.length === count) {
-        return centers;
+    while (centers.length < count) {
+      let bestCandidate: MutableHex | undefined;
+      let bestMinimumDistance = -1;
+
+      for (const candidate of candidates) {
+        const minimumDistance = Math.min(...centers.map((center) => hexDistance(center, candidate)));
+        if (minimumDistance >= minimumSeparation && minimumDistance > bestMinimumDistance) {
+          bestCandidate = candidate;
+          bestMinimumDistance = minimumDistance;
+        }
       }
+
+      if (bestCandidate === undefined) {
+        break;
+      }
+
+      centers.push({ q: bestCandidate.q, r: bestCandidate.r });
+    }
+
+    if (centers.length === count) {
+      return centers;
     }
   }
 
@@ -283,9 +299,7 @@ function assignLandmasses(
     continents.length !== configuration.continentCount ||
     continents.some((component) => component.cells.length < minimumContinentHexes)
   ) {
-    throw new Error(
-      `World generation produced fewer than ${configuration.continentCount} valid continents.`,
-    );
+    throw new Error(`World generation produced fewer than ${configuration.continentCount} valid continents.`);
   }
 
   const continentComponents = new Set(continents);
@@ -317,9 +331,7 @@ function assignWaterBodies(
   configuration: WorldGenerationConfig,
   terrainIds: Readonly<Record<TerrainRole, string>>,
 ): readonly WorldWaterBody[] {
-  const components = [...findComponents(cells, (cell) => !cell.isLand)].sort(
-    compareComponentsByFirstCell,
-  );
+  const components = [...findComponents(cells, (cell) => !cell.isLand)].sort(compareComponentsByFirstCell);
   const minimumSeaHexes = Math.floor(Math.PI * configuration.seaRadius * configuration.seaRadius * 0.7);
   const records: WorldWaterBody[] = [];
   let oceanIndex = 1;
@@ -399,7 +411,10 @@ function assignCoastalWater(
 }
 
 function isOceanOrSea(cell: MutableHex): boolean {
-  return cell.waterBodyId?.startsWith('water.ocean.') === true || cell.waterBodyId?.startsWith('water.sea.') === true;
+  return (
+    cell.waterBodyId?.startsWith('water.ocean.') === true ||
+    cell.waterBodyId?.startsWith('water.sea.') === true
+  );
 }
 
 function generateRivers(
@@ -453,10 +468,7 @@ function generateRivers(
 
   return [...edges.values()].sort(
     (left, right) =>
-      left.fromR - right.fromR ||
-      left.fromQ - right.fromQ ||
-      left.toR - right.toR ||
-      left.toQ - right.toQ,
+      left.fromR - right.fromR || left.fromQ - right.fromQ || left.toR - right.toR || left.toQ - right.toQ,
   );
 }
 

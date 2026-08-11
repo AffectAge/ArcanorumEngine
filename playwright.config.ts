@@ -21,7 +21,7 @@ export default defineConfig({
       reuseExistingServer: false,
       env: {
         NODE_ENV: 'test',
-        SERVER_CONFIGURATION_PATH: 'B:\\Arcanorum\\server_configuration.test.json',
+        SERVER_CONFIGURATION_PATH: 'server_configuration.test.json',
         SESSION_HMAC_SECRET: 'playwright-session-secret-with-at-least-thirty-two-characters',
         RATE_LIMIT_HMAC_SECRET: 'playwright-rate-secret-with-at-least-thirty-two-characters',
         COOKIE_SECURE: 'false',

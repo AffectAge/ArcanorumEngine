@@ -37,5 +37,17 @@
       "category": "land",
       "role": "land"
     }
+  ],
+  "overlays": [
+    {
+      "id": "overlay.river",
+      "role": "river",
+      "key": "world.river.atlas",
+      "url": "/assets/world/terrain/river-atlas.webp",
+      "frameWidth": 96,
+      "frameHeight": 84,
+      "columns": 8,
+      "rows": 8
+    }
   ]
 }
