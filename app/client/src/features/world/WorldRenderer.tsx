@@ -8,6 +8,15 @@ type WorldRendererProps = {
   readonly failureLabel: string;
 };
 
+const INITIAL_CAMERA_ZOOM = 0.55;
+const MINIMUM_CAMERA_ZOOM = 0.15;
+const MAXIMUM_CAMERA_ZOOM = 1.75;
+const WHEEL_ZOOM_SENSITIVITY = 0.002;
+
+type PinchGesture = {
+  readonly distance: number;
+};
+
 export function WorldRenderer({ world, ariaLabel, failureLabel }: WorldRendererProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | undefined>();
@@ -48,6 +57,9 @@ function createWorldGame(
     parent,
     backgroundColor: '#000000',
     scene: [new WorldScene(world, onFailure)],
+    input: {
+      activePointers: 2,
+    },
     scale: {
       mode: Phaser.Scale.RESIZE,
       autoCenter: Phaser.Scale.CENTER_BOTH,
@@ -62,6 +74,9 @@ function createWorldGame(
 class WorldScene extends Phaser.Scene {
   private failed = false;
   private dragPointerId: number | undefined;
+  private pinchGesture: PinchGesture | undefined;
+  private mapWidthInPixels = 0;
+  private mapHeightInPixels = 0;
   private dragOrigin:
     | { readonly x: number; readonly y: number; readonly scrollX: number; readonly scrollY: number }
     | undefined;
@@ -103,7 +118,7 @@ class WorldScene extends Phaser.Scene {
       terrainLayer.setDepth(0);
       riverLayer.setDepth(1);
       this.configureCamera(map);
-      this.bindPanningInput();
+      this.bindCameraInput();
       this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.onShutdown, this);
     } catch (error) {
       this.fail(error instanceof Error ? error.message : String(error));
@@ -111,46 +126,205 @@ class WorldScene extends Phaser.Scene {
   }
 
   private configureCamera(map: Phaser.Tilemaps.Tilemap): void {
+    this.mapWidthInPixels = map.widthInPixels;
+    this.mapHeightInPixels = map.heightInPixels;
     const camera = this.cameras.main;
-    camera.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
-    camera.centerOn(map.widthInPixels / 2, map.heightInPixels / 2);
-    camera.setZoom(0.55);
+    camera.setBounds(0, 0, this.mapWidthInPixels, this.mapHeightInPixels);
+    this.resetCamera();
     camera.setRoundPixels(true);
   }
 
-  private bindPanningInput(): void {
-    this.input.on(Phaser.Input.Events.POINTER_DOWN, (pointer: Phaser.Input.Pointer) => {
-      this.dragPointerId = pointer.id;
-      this.dragOrigin = {
-        x: pointer.x,
-        y: pointer.y,
-        scrollX: this.cameras.main.scrollX,
-        scrollY: this.cameras.main.scrollY,
-      };
-    });
-    this.input.on(Phaser.Input.Events.POINTER_MOVE, (pointer: Phaser.Input.Pointer) => {
-      if (this.dragPointerId !== pointer.id || this.dragOrigin === undefined || !pointer.isDown) {
-        return;
-      }
+  private bindCameraInput(): void {
+    this.input.on(Phaser.Input.Events.POINTER_DOWN, this.onPointerDown, this);
+    this.input.on(Phaser.Input.Events.POINTER_MOVE, this.onPointerMove, this);
+    this.input.on(Phaser.Input.Events.POINTER_UP, this.onPointerUp, this);
+    this.input.on(Phaser.Input.Events.POINTER_UP_OUTSIDE, this.onPointerUp, this);
+    this.input.on(Phaser.Input.Events.POINTER_WHEEL, this.onPointerWheel, this);
+    this.input.keyboard?.on(Phaser.Input.Keyboard.Events.ANY_KEY_DOWN, this.onKeyboardDown, this);
+  }
 
-      const zoom = this.cameras.main.zoom;
-      this.cameras.main.setScroll(
-        this.dragOrigin.scrollX - (pointer.x - this.dragOrigin.x) / zoom,
-        this.dragOrigin.scrollY - (pointer.y - this.dragOrigin.y) / zoom,
-      );
-    });
-    this.input.on(Phaser.Input.Events.POINTER_UP, (pointer: Phaser.Input.Pointer) => {
-      if (this.dragPointerId === pointer.id) {
-        this.dragPointerId = undefined;
-        this.dragOrigin = undefined;
+  private onPointerDown(pointer: Phaser.Input.Pointer): void {
+    if (pointer.wasTouch && this.tryStartPinch()) {
+      return;
+    }
+
+    this.startDrag(pointer);
+  }
+
+  private onPointerMove(pointer: Phaser.Input.Pointer): void {
+    if (this.updatePinch()) {
+      return;
+    }
+
+    if (this.dragPointerId !== pointer.id || this.dragOrigin === undefined || !pointer.isDown) {
+      return;
+    }
+
+    const zoom = this.cameras.main.zoom;
+    this.cameras.main.setScroll(
+      this.dragOrigin.scrollX - (pointer.x - this.dragOrigin.x) / zoom,
+      this.dragOrigin.scrollY - (pointer.y - this.dragOrigin.y) / zoom,
+    );
+  }
+
+  private onPointerUp(pointer: Phaser.Input.Pointer): void {
+    const wasPinching = this.pinchGesture !== undefined;
+    this.pinchGesture = undefined;
+
+    if (this.dragPointerId === pointer.id) {
+      this.clearDrag();
+    }
+
+    if (wasPinching) {
+      const remainingPointer = this.getActiveTouchPointers()[0];
+      if (remainingPointer !== undefined) {
+        this.startDrag(remainingPointer);
       }
-    });
+    }
+  }
+
+  private onPointerWheel(
+    pointer: Phaser.Input.Pointer,
+    _currentlyOver: readonly Phaser.GameObjects.GameObject[],
+    _deltaX: number,
+    deltaY: number,
+  ): void {
+    const boundedDelta = Math.max(-400, Math.min(400, deltaY));
+    const requestedZoom = this.cameras.main.zoom * Math.exp(-boundedDelta * WHEEL_ZOOM_SENSITIVITY);
+    this.setZoomAtScreenPoint(pointer.x, pointer.y, requestedZoom);
+  }
+
+  private onKeyboardDown(event: KeyboardEvent): void {
+    if (event.altKey || event.ctrlKey || event.metaKey) {
+      return;
+    }
+
+    switch (event.key) {
+      case '+':
+      case '=':
+        event.preventDefault();
+        this.zoomAtViewportCenter(1.2);
+        return;
+      case '-':
+      case '_':
+        event.preventDefault();
+        this.zoomAtViewportCenter(1 / 1.2);
+        return;
+      case '0':
+        event.preventDefault();
+        this.resetCamera();
+        return;
+      default:
+        return;
+    }
+  }
+
+  private tryStartPinch(): boolean {
+    const [firstPointer, secondPointer] = this.getActiveTouchPointers();
+    if (firstPointer === undefined || secondPointer === undefined) {
+      return false;
+    }
+
+    const distance = pointerDistance(firstPointer, secondPointer);
+    if (distance === 0) {
+      return false;
+    }
+
+    this.clearDrag();
+    this.pinchGesture = { distance };
+    return true;
+  }
+
+  private updatePinch(): boolean {
+    if (this.pinchGesture === undefined) {
+      return false;
+    }
+
+    const [firstPointer, secondPointer] = this.getActiveTouchPointers();
+    if (firstPointer === undefined || secondPointer === undefined) {
+      this.pinchGesture = undefined;
+      return false;
+    }
+
+    const distance = pointerDistance(firstPointer, secondPointer);
+    if (distance === 0) {
+      return true;
+    }
+
+    const midpoint = pointerMidpoint(firstPointer, secondPointer);
+    this.setZoomAtScreenPoint(
+      midpoint.x,
+      midpoint.y,
+      this.cameras.main.zoom * (distance / this.pinchGesture.distance),
+    );
+    this.pinchGesture = { distance };
+    return true;
+  }
+
+  private getActiveTouchPointers(): readonly Phaser.Input.Pointer[] {
+    return [this.input.pointer1, this.input.pointer2].filter((pointer) => pointer.isDown && pointer.wasTouch);
+  }
+
+  private startDrag(pointer: Phaser.Input.Pointer): void {
+    this.dragPointerId = pointer.id;
+    this.dragOrigin = {
+      x: pointer.x,
+      y: pointer.y,
+      scrollX: this.cameras.main.scrollX,
+      scrollY: this.cameras.main.scrollY,
+    };
+  }
+
+  private clearDrag(): void {
+    this.dragPointerId = undefined;
+    this.dragOrigin = undefined;
+  }
+
+  private zoomAtViewportCenter(zoomMultiplier: number): void {
+    const camera = this.cameras.main;
+    this.setZoomAtScreenPoint(
+      camera.x + camera.width / 2,
+      camera.y + camera.height / 2,
+      camera.zoom * zoomMultiplier,
+    );
+  }
+
+  private setZoomAtScreenPoint(screenX: number, screenY: number, requestedZoom: number): void {
+    const camera = this.cameras.main;
+    const zoom = clampCameraZoom(requestedZoom);
+    if (Math.abs(zoom - camera.zoom) < Number.EPSILON) {
+      return;
+    }
+
+    const localX = screenX - camera.x;
+    const localY = screenY - camera.y;
+    const originX = camera.width * camera.originX;
+    const originY = camera.height * camera.originY;
+    const worldX = camera.scrollX + originX + (localX - originX) / camera.zoom;
+    const worldY = camera.scrollY + originY + (localY - originY) / camera.zoom;
+
+    camera.setZoom(zoom);
+    camera.setScroll(
+      worldX - originX - (localX - originX) / zoom,
+      worldY - originY - (localY - originY) / zoom,
+    );
+  }
+
+  private resetCamera(): void {
+    const camera = this.cameras.main;
+    camera.centerOn(this.mapWidthInPixels / 2, this.mapHeightInPixels / 2);
+    camera.setZoom(INITIAL_CAMERA_ZOOM);
   }
 
   private onShutdown(): void {
-    this.input.off(Phaser.Input.Events.POINTER_DOWN);
-    this.input.off(Phaser.Input.Events.POINTER_MOVE);
-    this.input.off(Phaser.Input.Events.POINTER_UP);
+    this.input.off(Phaser.Input.Events.POINTER_DOWN, this.onPointerDown, this);
+    this.input.off(Phaser.Input.Events.POINTER_MOVE, this.onPointerMove, this);
+    this.input.off(Phaser.Input.Events.POINTER_UP, this.onPointerUp, this);
+    this.input.off(Phaser.Input.Events.POINTER_UP_OUTSIDE, this.onPointerUp, this);
+    this.input.off(Phaser.Input.Events.POINTER_WHEEL, this.onPointerWheel, this);
+    this.input.keyboard?.off(Phaser.Input.Keyboard.Events.ANY_KEY_DOWN, this.onKeyboardDown, this);
+    this.clearDrag();
+    this.pinchGesture = undefined;
     this.tweens.killAll();
   }
 
@@ -163,6 +337,24 @@ class WorldScene extends Phaser.Scene {
     this.onFailure(message);
     this.scene.stop();
   }
+}
+
+function clampCameraZoom(value: number): number {
+  return Math.max(MINIMUM_CAMERA_ZOOM, Math.min(MAXIMUM_CAMERA_ZOOM, value));
+}
+
+function pointerDistance(left: Phaser.Input.Pointer, right: Phaser.Input.Pointer): number {
+  return Math.hypot(right.x - left.x, right.y - left.y);
+}
+
+function pointerMidpoint(
+  left: Phaser.Input.Pointer,
+  right: Phaser.Input.Pointer,
+): { readonly x: number; readonly y: number } {
+  return {
+    x: (left.x + right.x) / 2,
+    y: (left.y + right.y) / 2,
+  };
 }
 
 function createTilemap(scene: Phaser.Scene, world: WorldMapResponse): Phaser.Tilemaps.Tilemap {

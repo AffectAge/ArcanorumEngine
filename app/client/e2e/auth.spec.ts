@@ -1,4 +1,4 @@
-import { expect, test, type BrowserContext } from '@playwright/test';
+import { expect, test, type BrowserContext, type Page } from '@playwright/test';
 
 type Copy = {
   readonly locale: 'en' | 'ru';
@@ -48,11 +48,22 @@ const RU_COPY: Copy = {
   login: 'browser_ru_player',
 };
 
+const TOUCH_COPY: Copy = {
+  ...EN_COPY,
+  countryName: 'Touch Arcadia',
+  login: 'browser_touch_player',
+};
+
 test('registers, restores protected access, and handles both session durations', async ({
   page,
   context,
 }, testInfo) => {
-  const copy = testInfo.project.name === 'chromium-ru' ? RU_COPY : EN_COPY;
+  const copy =
+    testInfo.project.name === 'chromium-ru'
+      ? RU_COPY
+      : testInfo.project.name === 'chromium-touch'
+        ? TOUCH_COPY
+        : EN_COPY;
   const password = 'A password with fifteen characters';
 
   await page.goto('/game');
@@ -72,7 +83,8 @@ test('registers, restores protected access, and handles both session durations',
   await expect(page).toHaveURL(/\/game$/);
   await expect(page.getByText(copy.countryName)).toBeVisible();
   await expect(page.getByText(copy.login)).toBeVisible();
-  await expect(page.locator('.world-renderer canvas')).toBeVisible();
+  const worldCanvas = page.locator('.world-renderer canvas');
+  await expect(worldCanvas).toBeVisible();
   const mapBounds = await page.locator('.game-shell__map-region').evaluate((element) => {
     const bounds = element.getBoundingClientRect();
 
@@ -93,6 +105,28 @@ test('registers, restores protected access, and handles both session durations',
     viewportWidth: mapBounds.viewportWidth,
     width: mapBounds.viewportWidth,
   });
+  await worldCanvas.hover({ position: { x: 640, y: 360 } });
+  const initialMap = await worldCanvas.screenshot();
+  await page.mouse.wheel(0, -300);
+  await waitForRenderedFrames(page);
+  const wheelZoomedMap = await worldCanvas.screenshot();
+  expect(wheelZoomedMap.equals(initialMap)).toBe(false);
+  await page.keyboard.press('0');
+  await waitForRenderedFrames(page);
+  const resetMap = await worldCanvas.screenshot();
+  await page.keyboard.press('Shift+=');
+  await waitForRenderedFrames(page);
+  const keyboardZoomedMap = await worldCanvas.screenshot();
+  expect(keyboardZoomedMap.equals(resetMap)).toBe(false);
+  if (testInfo.project.name === 'chromium-touch') {
+    await page.keyboard.press('0');
+    await waitForRenderedFrames(page);
+    const beforePinchMap = await worldCanvas.screenshot();
+    await zoomWithPinchGesture(page);
+    await waitForRenderedFrames(page);
+    const pinchZoomedMap = await worldCanvas.screenshot();
+    expect(pinchZoomedMap.equals(beforePinchMap)).toBe(false);
+  }
   await page.screenshot({ path: testInfo.outputPath('world-map.png'), fullPage: false });
   expect(
     await page.evaluate(() => ({ local: Object.keys(localStorage), session: Object.keys(sessionStorage) })),
@@ -132,4 +166,42 @@ async function expectSessionCookie(context: BrowserContext, minimumExpiry: numbe
   expect(cookie?.httpOnly).toBe(true);
   expect(cookie?.sameSite).toBe('Strict');
   expect(cookie?.expires ?? -1).toBeGreaterThanOrEqual(minimumExpiry);
+}
+
+async function waitForRenderedFrames(page: Page): Promise<void> {
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) => {
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => resolve());
+        });
+      }),
+  );
+}
+
+async function zoomWithPinchGesture(page: Page): Promise<void> {
+  const session = await page.context().newCDPSession(page);
+
+  try {
+    await session.send('Input.dispatchTouchEvent', {
+      type: 'touchStart',
+      touchPoints: [
+        { id: 1, x: 520, y: 360 },
+        { id: 2, x: 760, y: 360 },
+      ],
+    });
+    await session.send('Input.dispatchTouchEvent', {
+      type: 'touchMove',
+      touchPoints: [
+        { id: 1, x: 420, y: 360 },
+        { id: 2, x: 860, y: 360 },
+      ],
+    });
+    await session.send('Input.dispatchTouchEvent', {
+      type: 'touchEnd',
+      touchPoints: [],
+    });
+  } finally {
+    await session.detach();
+  }
 }

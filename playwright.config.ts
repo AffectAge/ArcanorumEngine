@@ -43,5 +43,9 @@ export default defineConfig({
       name: 'chromium-ru',
       use: { ...devices['Desktop Chrome'], locale: 'ru-RU' },
     },
+    {
+      name: 'chromium-touch',
+      use: { ...devices['Desktop Chrome'], hasTouch: true, locale: 'en-US' },
+    },
   ],
 });
