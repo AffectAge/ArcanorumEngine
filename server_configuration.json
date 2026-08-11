@@ -1,0 +1,35 @@
+{
+  "server": {
+    "port": 3000,
+    "bindHost": "0.0.0.0",
+    "allowedOrigins": [
+      "http://localhost:5173",
+      "http://127.0.0.1:5173",
+      "http://172.20.153.96:5173"
+    ]
+  },
+  "world": {
+    "path": "./world",
+    "autoCreate": true,
+    "name": "Arcanorum",
+    "seed": "auto",
+    "generation": {
+      "width": 96,
+      "height": 64,
+      "continentCount": 3,
+      "continentCoverage": 0.38,
+      "continentMinimumSeparation": 24,
+      "seaLevel": 530,
+      "islandCount": 18,
+      "islandMaximumRadius": 4,
+      "seaCount": 1,
+      "seaRadius": 7,
+      "lakeCount": 9,
+      "lakeRadius": 3,
+      "coastalWaterWidth": 1,
+      "riverCount": 20,
+      "riverMinimumSourceElevation": 680,
+      "riverMinimumSourceDistance": 7
+    }
+  }
+}

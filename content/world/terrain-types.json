@@ -1,0 +1,41 @@
+{
+  "atlas": {
+    "key": "world.terrain.atlas",
+    "url": "/assets/world/terrain/terrain-atlas.webp",
+    "frameWidth": 96,
+    "frameHeight": 84,
+    "columns": 5
+  },
+  "terrainTypes": [
+    {
+      "id": "terrain.ocean",
+      "frame": 0,
+      "category": "water",
+      "role": "ocean"
+    },
+    {
+      "id": "terrain.coastal_water",
+      "frame": 1,
+      "category": "water",
+      "role": "coastal_water"
+    },
+    {
+      "id": "terrain.sea",
+      "frame": 2,
+      "category": "water",
+      "role": "sea"
+    },
+    {
+      "id": "terrain.lake",
+      "frame": 3,
+      "category": "water",
+      "role": "lake"
+    },
+    {
+      "id": "terrain.land",
+      "frame": 4,
+      "category": "land",
+      "role": "land"
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "name": "arcanorum",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "app/client",
+    "app/server",
+    "app/shared"
+  ],
+  "scripts": {
+    "dev:client": "npm run dev --workspace @arcanorum/client",
+    "dev:server": "npm run dev --workspace @arcanorum/server",
+    "build": "npm run build --workspace @arcanorum/client",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "test:e2e": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.57.0",
+    "@types/node": "^22.10.1",
+    "@typescript-eslint/eslint-plugin": "^8.18.0",
+    "@typescript-eslint/parser": "^8.18.0",
+    "eslint": "^9.17.0",
+    "eslint-config-prettier": "^9.1.0",
+    "prettier": "^3.4.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vitest": "^4.0.18"
+  }
+}

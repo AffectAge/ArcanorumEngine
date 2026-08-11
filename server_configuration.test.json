@@ -1,0 +1,31 @@
+{
+  "server": {
+    "port": 3000,
+    "bindHost": "127.0.0.1",
+    "allowedOrigins": ["http://127.0.0.1:5173"]
+  },
+  "world": {
+    "path": ":memory:",
+    "autoCreate": true,
+    "name": "Test world",
+    "seed": "test-world-seed",
+    "generation": {
+      "width": 48,
+      "height": 36,
+      "continentCount": 2,
+      "continentCoverage": 0.36,
+      "continentMinimumSeparation": 13,
+      "seaLevel": 520,
+      "islandCount": 5,
+      "islandMaximumRadius": 3,
+      "seaCount": 1,
+      "seaRadius": 4,
+      "lakeCount": 3,
+      "lakeRadius": 2,
+      "coastalWaterWidth": 1,
+      "riverCount": 5,
+      "riverMinimumSourceElevation": 640,
+      "riverMinimumSourceDistance": 5
+    }
+  }
+}

@@ -1,0 +1,370 @@
+:root {
+  color-scheme: dark;
+  --arc-ui-bg: #000000;
+  --arc-ui-surface: #0a0a0a;
+  --arc-ui-surface-raised: #111111;
+  --arc-ui-text: #ffffff;
+  --arc-ui-text-muted: #b8b8b8;
+  --arc-ui-border: #4c4c4c;
+  --arc-ui-hover: #00910e;
+  --arc-ui-danger: #cc0000;
+  --arc-ui-focus: #00910e;
+  --arc-space-1: 0.5rem;
+  --arc-space-2: 0.75rem;
+  --arc-space-3: 1rem;
+  --arc-space-4: 1.5rem;
+  --arc-motion-fast: 120ms;
+  --arc-motion-normal: 180ms;
+  --arc-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  background: var(--arc-ui-bg);
+  color: var(--arc-ui-text);
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+a {
+  color: var(--arc-ui-text);
+  text-underline-offset: 0.2em;
+}
+
+a:hover,
+a:focus-visible {
+  color: var(--arc-ui-hover);
+}
+
+:focus-visible {
+  outline: 2px solid var(--arc-ui-focus);
+  outline-offset: 3px;
+}
+
+.app-loading,
+.game-shell {
+  min-height: 100vh;
+  background: var(--arc-ui-bg);
+}
+
+.auth-shell {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: var(--arc-space-4);
+  background:
+    linear-gradient(120deg, transparent 0 48%, rgb(0 145 14 / 12%) 48.15% 48.4%, transparent 48.55%),
+    var(--arc-ui-bg);
+}
+
+.auth-panel {
+  width: min(100%, 31rem);
+  border: 1px solid var(--arc-ui-border);
+  background: linear-gradient(145deg, #111 0%, #050505 100%);
+  clip-path: polygon(0 1rem, 1rem 0, 100% 0, 100% calc(100% - 1rem), calc(100% - 1rem) 100%, 0 100%);
+  padding: clamp(1.5rem, 5vw, 2.5rem);
+  box-shadow:
+    0 1.5rem 4rem rgb(0 0 0 / 65%),
+    inset 0 0 0 1px rgb(255 255 255 / 4%);
+}
+
+.auth-panel__eyebrow,
+.game-shell__eyebrow {
+  margin: 0 0 var(--arc-space-1);
+  color: var(--arc-ui-hover);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.auth-panel h1 {
+  margin: 0;
+  font-size: clamp(1.75rem, 5vw, 2.5rem);
+  letter-spacing: 0.025em;
+}
+
+.auth-panel__description {
+  margin: var(--arc-space-2) 0 var(--arc-space-4);
+  color: var(--arc-ui-text-muted);
+  line-height: 1.5;
+}
+
+.auth-form {
+  display: grid;
+  gap: var(--arc-space-3);
+}
+
+.auth-form__error,
+.form-field__error {
+  margin: 0;
+  border-inline-start: 3px solid var(--arc-ui-danger);
+  color: var(--arc-ui-text);
+  font-size: 0.875rem;
+  line-height: 1.4;
+  padding-inline-start: var(--arc-space-1);
+}
+
+.form-field {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.form-field__label {
+  color: var(--arc-ui-text);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.text-field {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--arc-ui-border);
+  background: #000;
+  transition:
+    border-color var(--arc-motion-fast) var(--arc-ease-standard),
+    box-shadow var(--arc-motion-fast) var(--arc-ease-standard);
+}
+
+.text-field:focus-within {
+  border-color: var(--arc-ui-hover);
+  box-shadow: 0 0 0 1px var(--arc-ui-hover);
+}
+
+.text-field--invalid {
+  border-color: var(--arc-ui-danger);
+}
+
+.text-field__input {
+  min-width: 0;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--arc-ui-text);
+  outline: 0;
+  padding: 0.8rem 0.9rem;
+}
+
+.text-field__adornment {
+  display: inline-flex;
+  padding-inline-end: 0.35rem;
+}
+
+.password-field__toggle {
+  border: 0;
+  background: transparent;
+  color: var(--arc-ui-text);
+  cursor: pointer;
+  font-size: 0.75rem;
+  padding: 0.45rem 0.5rem;
+}
+
+.password-field__toggle:hover {
+  color: var(--arc-ui-hover);
+}
+
+.checkbox {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  color: var(--arc-ui-text-muted);
+  cursor: pointer;
+  font-size: 0.875rem;
+}
+
+.checkbox__input {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-start: 0;
+  inline-size: 1.1rem;
+  block-size: 1.1rem;
+  margin: 0;
+  cursor: pointer;
+  opacity: 0;
+}
+
+.checkbox__box {
+  display: grid;
+  inline-size: 1.1rem;
+  block-size: 1.1rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid var(--arc-ui-border);
+  background: #000;
+  pointer-events: none;
+}
+
+.checkbox__input:checked + .checkbox__box {
+  border-color: var(--arc-ui-hover);
+  background: var(--arc-ui-hover);
+}
+
+.checkbox__input:checked + .checkbox__box::after {
+  content: '';
+  inline-size: 0.28rem;
+  block-size: 0.55rem;
+  border-block-end: 2px solid #000;
+  border-inline-end: 2px solid #000;
+  transform: rotate(45deg) translate(-1px, -1px);
+}
+
+.checkbox__input:focus-visible + .checkbox__box {
+  outline: 2px solid var(--arc-ui-focus);
+  outline-offset: 3px;
+}
+
+.button {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border: 1px solid var(--arc-ui-text);
+  background: #000;
+  color: var(--arc-ui-text);
+  cursor: pointer;
+  font-weight: 700;
+  padding: 0.7rem 1rem;
+  transition:
+    background-color var(--arc-motion-fast) var(--arc-ease-standard),
+    color var(--arc-motion-fast) var(--arc-ease-standard),
+    border-color var(--arc-motion-fast) var(--arc-ease-standard);
+}
+
+.button:hover:not(:disabled) {
+  border-color: var(--arc-ui-hover);
+  background: var(--arc-ui-hover);
+  color: #000;
+}
+
+.button--secondary {
+  border-color: var(--arc-ui-border);
+}
+
+.button--danger {
+  border-color: var(--arc-ui-danger);
+  background: var(--arc-ui-danger);
+  color: #fff;
+}
+
+.button--danger:hover:not(:disabled) {
+  border-color: #fff;
+  background: #a80000;
+  color: #fff;
+}
+
+.button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.button__loading {
+  inline-size: 0.75rem;
+  block-size: 0.75rem;
+  border: 2px solid currentColor;
+  border-inline-end-color: transparent;
+  border-radius: 50%;
+  animation: button-spin 650ms linear infinite;
+}
+
+.auth-panel__footer {
+  margin-top: var(--arc-space-4);
+  text-align: center;
+}
+
+.game-shell {
+  padding: clamp(1rem, 4vw, 2.5rem);
+}
+
+.game-shell__header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: var(--arc-space-4);
+  border-bottom: 1px solid var(--arc-ui-border);
+  padding-bottom: var(--arc-space-3);
+}
+
+.game-shell__identity {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.25rem 2.5rem;
+  margin: 0;
+}
+
+.game-shell__identity div {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.game-shell__identity dt {
+  color: var(--arc-ui-text-muted);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+}
+
+.game-shell__identity dd {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+
+.game-shell__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: end;
+  gap: var(--arc-space-2);
+}
+
+@keyframes button-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 44rem) {
+  .game-shell__header {
+    flex-direction: column;
+  }
+
+  .game-shell__actions {
+    justify-content: start;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 1ms !important;
+  }
+}
