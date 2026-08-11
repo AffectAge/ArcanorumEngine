@@ -24,6 +24,7 @@ type MutableHex = {
   temperature: number;
   rainfall: number;
   flowAccumulation: number;
+  plannedWater: boolean;
   landmassId: string | undefined;
   waterBodyId: string | undefined;
 };
@@ -119,7 +120,7 @@ function generateLandforms(
   const continentRadius = calculateContinentRadius(configuration);
   const continentSeparation = Math.max(
     configuration.continentMinimumSeparation,
-    Math.ceil(continentRadius * 1.3),
+    Math.ceil(continentRadius * 2.28 + 4),
   );
   const centers = selectContinentCenters(
     grid,
@@ -135,6 +136,7 @@ function generateLandforms(
 
   addIslands(cells, grid, configuration, random, noise);
   fillAccidentalInlandWater(cells, grid, configuration.seaLevel);
+  const plannedWaterIndexes = new Set<number>();
   carveInternalWater(
     cells,
     grid,
@@ -143,6 +145,7 @@ function generateLandforms(
     configuration,
     random,
     noise,
+    plannedWaterIndexes,
   );
   carveInternalWater(
     cells,
@@ -152,7 +155,9 @@ function generateLandforms(
     configuration,
     random,
     noise,
+    plannedWaterIndexes,
   );
+  fillUnplannedInlandWater(cells, grid, configuration.seaLevel, plannedWaterIndexes);
   addMountainRanges(cells, grid, configuration, random, noise);
 }
 
@@ -210,6 +215,7 @@ function createBaseCells(
       temperature: 0,
       rainfall: 0,
       flowAccumulation: 0,
+      plannedWater: false,
       landmassId: undefined,
       waterBodyId: undefined,
     };
@@ -283,7 +289,7 @@ function raiseContinent(
 ): void {
   const center = grid.coordinateAt(centerIndex);
   const angle = random.nextFloat() * Math.PI * 2;
-  const aspectRatio = 0.72 + random.nextFloat() * 0.56;
+  const aspectRatio = 0.88 + random.nextFloat() * 0.24;
   const majorRadius = radius * aspectRatio;
   const minorRadius = radius / aspectRatio;
   const cosine = Math.cos(angle);
@@ -300,7 +306,7 @@ function raiseContinent(
       cell.q / configuration.continentCoastNoiseScale + 173,
       cell.r / configuration.continentCoastNoiseScale - 241,
     );
-    const coastBoundary = 1 + coastVariation * configuration.continentCoastRoughness;
+    const coastBoundary = 1 + Math.min(0, coastVariation) * configuration.continentCoastRoughness;
 
     if (normalizedDistance > coastBoundary) {
       continue;
@@ -340,26 +346,56 @@ function carveInternalWater(
   configuration: WorldGenerationConfig,
   random: SeededRandom,
   noise: (x: number, y: number) => number,
+  plannedWaterIndexes: Set<number>,
 ): void {
   for (let basinIndex = 0; basinIndex < count; basinIndex += 1) {
     const center = findCircularAreaCenter(cells, grid, radius + 1, true, random);
-    const centerCoordinate = grid.coordinateAt(center);
+    const basinIndexes = new Set<number>();
 
     for (const index of grid.indexesWithinRadius(center, radius + 1)) {
       const cell = requiredCell(cells, index);
       const irregularRadius = radius * (1 + noise(cell.q / 5 + 97, cell.r / 5 - 53) * 0.18);
-      if (grid.distanceBetween(center, index) <= irregularRadius) {
-        cell.isLand = false;
-        cell.elevation = clampInteger(configuration.seaLevel - 110);
-        cell.biomeId = undefined;
-        cell.landmassId = undefined;
+      const distance = grid.distanceBetween(center, index);
+      const isConnectedToBasin =
+        distance === 0 || grid.neighborsOf(index).some((neighbor) => basinIndexes.has(neighbor));
+      if (distance <= irregularRadius && isConnectedToBasin) {
+        basinIndexes.add(index);
       }
     }
 
-    if (
-      !cells.some((cell) => cell.q === centerCoordinate.q && cell.r === centerCoordinate.r && !cell.isLand)
-    ) {
+    if (!basinIndexes.has(center)) {
       throw new Error('World generation did not carve its selected inland water basin.');
+    }
+
+    for (const index of basinIndexes) {
+      const cell = requiredCell(cells, index);
+      cell.isLand = false;
+      cell.elevation = clampInteger(configuration.seaLevel - 110);
+      cell.biomeId = undefined;
+      cell.landmassId = undefined;
+      cell.plannedWater = true;
+      plannedWaterIndexes.add(index);
+    }
+  }
+}
+
+function fillUnplannedInlandWater(
+  cells: readonly MutableHex[],
+  grid: HexGrid,
+  seaLevel: number,
+  plannedWaterIndexes: ReadonlySet<number>,
+): void {
+  const unplannedWater = findComponents(cells, grid, (cell) => !cell.isLand).filter(
+    (component) =>
+      !component.touchesBoundary &&
+      !component.indexes.some((index) => plannedWaterIndexes.has(index)),
+  );
+
+  for (const component of unplannedWater) {
+    for (const index of component.indexes) {
+      const cell = requiredCell(cells, index);
+      cell.isLand = true;
+      cell.elevation = Math.max(cell.elevation, seaLevel + 24);
     }
   }
 }
@@ -521,8 +557,14 @@ function assignWaterBodies(
   const seaCount = records.filter((record) => record.kind === 'sea').length;
   const lakeCount = records.filter((record) => record.kind === 'lake').length;
   if (seaCount !== configuration.seaCount || lakeCount !== configuration.lakeCount) {
+    const componentSummary = components
+      .map(
+        (component) =>
+          `${component.indexes.length}:${component.touchesBoundary ? 'boundary' : 'inland'}:${component.indexes.some((index) => requiredCell(cells, index).plannedWater) ? 'planned' : 'unplanned'}`,
+      )
+      .join(', ');
     throw new Error(
-      `World generation expected ${configuration.seaCount} seas and ${configuration.lakeCount} lakes; produced ${seaCount} seas and ${lakeCount} lakes.`,
+      `World generation expected ${configuration.seaCount} seas and ${configuration.lakeCount} lakes; produced ${seaCount} seas and ${lakeCount} lakes. Components: ${componentSummary}.`,
     );
   }
 
