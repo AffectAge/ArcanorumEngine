@@ -146,7 +146,7 @@ export class WorldService {
       hexes: this.database
         .prepare(
           `SELECT q, r, terrain_id AS terrainId, elevation,
-                  biome_id AS biomeId, temperature, rainfall,
+                  temperature, rainfall,
                   flow_accumulation AS flowAccumulation,
                   landmass_id AS landmassId, water_body_id AS waterBodyId
            FROM world_hexes
@@ -194,16 +194,15 @@ export class WorldService {
 
       const insertHex = this.database.prepare(
         `INSERT INTO world_hexes (
-          q, r, terrain_id, biome_id, elevation, temperature, rainfall,
+          q, r, terrain_id, elevation, temperature, rainfall,
           flow_accumulation, landmass_id, water_body_id
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       );
       for (const hex of world.hexes) {
         insertHex.run(
           hex.q,
           hex.r,
           hex.terrainId,
-          hex.biomeId ?? null,
           hex.elevation,
           hex.temperature,
           hex.rainfall,
@@ -274,7 +273,6 @@ function toWorldHex(row: unknown): WorldHex {
     q: number;
     r: number;
     terrainId: string;
-    biomeId: string | null;
     elevation: number;
     temperature: number;
     rainfall: number;
@@ -291,7 +289,6 @@ function toWorldHex(row: unknown): WorldHex {
     temperature: source.temperature,
     rainfall: source.rainfall,
     flowAccumulation: source.flowAccumulation,
-    ...(source.biomeId === null ? {} : { biomeId: source.biomeId }),
     ...(source.landmassId === null ? {} : { landmassId: source.landmassId }),
     ...(source.waterBodyId === null ? {} : { waterBodyId: source.waterBodyId }),
   };

@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import type { WorldMapResponse } from '@arcanorum/shared';
+import type { WorldHex, WorldMapResponse } from '@arcanorum/shared';
 import { getWorldMap } from '../../api/world-api.js';
 import { useAuthStore } from '../../state/auth-store.js';
 import { Button } from '../../ui/Button.js';
+import { HexTooltip } from '../world/HexTooltip.js';
 import { WorldRenderer } from '../world/WorldRenderer.js';
 
 export function GameShellPage() {
@@ -15,6 +16,7 @@ export function GameShellPage() {
   const logoutAll = useAuthStore((state) => state.logoutAll);
   const [world, setWorld] = useState<WorldMapResponse | undefined>();
   const [worldError, setWorldError] = useState<string | undefined>();
+  const [selectedHex, setSelectedHex] = useState<WorldHex | undefined>();
 
   useEffect(() => {
     let active = true;
@@ -23,6 +25,7 @@ export function GameShellPage() {
       .then((loadedWorld) => {
         if (active) {
           setWorld(loadedWorld);
+          setSelectedHex(undefined);
         }
       })
       .catch((error: unknown) => {
@@ -50,6 +53,10 @@ export function GameShellPage() {
     await navigate('/login', { replace: true });
   }
 
+  const selectHex = useCallback((hex: WorldHex): void => {
+    setSelectedHex(hex);
+  }, []);
+
   return (
     <main className="game-shell" aria-label={t('game.shellLabel')}>
       <section className="game-shell__map-region" aria-label={t('game.map.regionLabel')}>
@@ -68,9 +75,13 @@ export function GameShellPage() {
             world={world}
             ariaLabel={t('game.map.canvasLabel', { worldName: world.worldName })}
             failureLabel={t('game.map.renderError')}
+            onHexSelect={selectHex}
           />
         )}
       </section>
+      {world === undefined || selectedHex === undefined ? null : (
+        <HexTooltip hex={selectedHex} world={world} />
+      )}
       <header className="game-shell__hud">
         <div className="game-shell__identity-panel">
           <p className="game-shell__eyebrow">{t('app.name')}</p>

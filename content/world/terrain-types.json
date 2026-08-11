@@ -6,13 +6,6 @@
     "frameHeight": 84,
     "columns": 5
   },
-  "biomeAtlas": {
-    "key": "world.biome.atlas",
-    "url": "/assets/world/terrain/biome-atlas.webp",
-    "frameWidth": 96,
-    "frameHeight": 84,
-    "columns": 9
-  },
   "terrainTypes": [
     {
       "id": "terrain.ocean",
@@ -43,62 +36,6 @@
       "frame": 4,
       "category": "land",
       "role": "land"
-    }
-  ],
-  "biomeTypes": [
-    {
-      "id": "biome.polar_desert",
-      "frame": 0,
-      "temperature": { "min": 0, "max": 240 },
-      "rainfall": { "min": 0, "max": 1000 }
-    },
-    {
-      "id": "biome.tundra",
-      "frame": 1,
-      "temperature": { "min": 241, "max": 360 },
-      "rainfall": { "min": 0, "max": 1000 }
-    },
-    {
-      "id": "biome.taiga",
-      "frame": 2,
-      "temperature": { "min": 361, "max": 500 },
-      "rainfall": { "min": 0, "max": 1000 }
-    },
-    {
-      "id": "biome.temperate_desert",
-      "frame": 3,
-      "temperature": { "min": 501, "max": 750 },
-      "rainfall": { "min": 0, "max": 300 }
-    },
-    {
-      "id": "biome.grassland",
-      "frame": 4,
-      "temperature": { "min": 501, "max": 750 },
-      "rainfall": { "min": 301, "max": 600 }
-    },
-    {
-      "id": "biome.temperate_forest",
-      "frame": 5,
-      "temperature": { "min": 501, "max": 750 },
-      "rainfall": { "min": 601, "max": 1000 }
-    },
-    {
-      "id": "biome.tropical_desert",
-      "frame": 6,
-      "temperature": { "min": 751, "max": 1000 },
-      "rainfall": { "min": 0, "max": 260 }
-    },
-    {
-      "id": "biome.savanna",
-      "frame": 7,
-      "temperature": { "min": 751, "max": 1000 },
-      "rainfall": { "min": 261, "max": 600 }
-    },
-    {
-      "id": "biome.rainforest",
-      "frame": 8,
-      "temperature": { "min": 751, "max": 1000 },
-      "rainfall": { "min": 601, "max": 1000 }
     }
   ],
   "overlays": [

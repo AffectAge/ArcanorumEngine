@@ -9,15 +9,40 @@ const GENERATION_CONFIG: WorldGenerationConfig = {
   continentCount: 2,
   continentCoverage: 0.36,
   continentMinimumSeparation: 12,
-  continentCoastRoughness: 0.16,
-  continentCoastNoiseScale: 12,
+  outerOcean: { hardWidth: 3, coastFalloffWidth: 4 },
+  continentalAxes: {
+    minimumCount: 2,
+    maximumCount: 3,
+    primaryLengthMinimumFactor: 0.85,
+    primaryLengthMaximumFactor: 1.1,
+    branchLengthMinimumFactor: 0.4,
+    branchLengthMaximumFactor: 0.65,
+    widthMinimumFactor: 0.62,
+    widthMaximumFactor: 0.78,
+    landThreshold: 0.1,
+    separationWidth: 2,
+    domainWarpScale: 18,
+    domainWarpAmount: 2.5,
+  },
+  coastNoise: {
+    macroScale: 24,
+    macroAmplitude: 0.18,
+    bayScale: 9,
+    bayAmplitude: 0.12,
+    detailScale: 3,
+    detailAmplitude: 0.03,
+  },
+  topology: { smoothingPasses: 1, minimumIslandHexes: 6 },
   seaLevel: 520,
   islandCount: 5,
   islandMaximumRadius: 3,
   seaCount: 1,
-  seaRadius: 4,
-  lakeCount: 3,
-  lakeRadius: 2,
+  seaRadius: 2,
+  seaChannelMinimumWidth: 1,
+  seaChannelMaximumWidth: 1,
+  seaChannelMeander: 0.2,
+  lakeCount: 1,
+  lakeRadius: 1,
   coastalWaterWidth: 1,
   mountainRangeCount: 2,
   mountainRangeMinimumLength: 7,
@@ -44,22 +69,28 @@ describe('world generation', () => {
     expect(first.hexes).toHaveLength(GENERATION_CONFIG.width * GENERATION_CONFIG.height);
     expect(first.landmasses.filter((landmass) => landmass.kind === 'continent')).toHaveLength(2);
     expect(first.waterBodies.filter((waterBody) => waterBody.kind === 'sea')).toHaveLength(1);
-    expect(first.waterBodies.filter((waterBody) => waterBody.kind === 'lake')).toHaveLength(3);
+    expect(first.waterBodies.filter((waterBody) => waterBody.kind === 'lake')).toHaveLength(1);
     expect(first.rivers.length).toBeGreaterThan(0);
-    expect(first.hexes.filter((hex) => hex.biomeId !== undefined)).not.toHaveLength(0);
     expect(first.hexes.every((hex) => hex.temperature >= 0 && hex.temperature <= 1000)).toBe(true);
     expect(first.hexes.every((hex) => hex.rainfall >= 0 && hex.rainfall <= 1000)).toBe(true);
+    expect(first.hexes.filter((hex) => hex.q === 0 || hex.r === 0 || hex.q === 47 || hex.r === 35)).toEqual(
+      expect.arrayContaining([expect.objectContaining({ waterBodyId: 'water.ocean.1' })]),
+    );
     expect(
-      first.hexes.filter((hex) => hex.landmassId !== undefined).every((hex) => hex.biomeId !== undefined),
+      first.hexes
+        .filter((hex) => hex.q === 0 || hex.r === 0 || hex.q === 47 || hex.r === 35)
+        .every((hex) => hex.waterBodyId === 'water.ocean.1'),
     ).toBe(true);
-    expect(
-      first.hexes.filter((hex) => hex.waterBodyId !== undefined).every((hex) => hex.biomeId === undefined),
-    ).toBe(true);
+    expect(first.diagnostics.boundaryLandHexCount).toBe(0);
+    expect(first.diagnostics.connectedSeaCount).toBe(1);
     expect(first.diagnostics.stages.map((stage) => stage.id)).toEqual([
       'stage.base_grid',
-      'stage.landforms',
+      'stage.macro_land',
+      'stage.topology',
+      'stage.water_geometry',
+      'stage.mountains',
       'stage.water_bodies',
-      'stage.climate_and_biomes',
+      'stage.climate',
       'stage.hydrology',
     ]);
     expectRiversReachWater(first);

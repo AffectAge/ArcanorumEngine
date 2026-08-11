@@ -373,6 +373,67 @@ a:focus-visible {
   background: #000;
 }
 
+.hex-tooltip {
+  position: absolute;
+  z-index: 1;
+  inset: auto auto clamp(0.75rem, 2vw, 1.5rem) clamp(0.75rem, 2vw, 1.5rem);
+  width: min(20rem, calc(100vw - 1.5rem));
+  border: 1px solid var(--arc-ui-border);
+  background: rgb(0 0 0 / 92%);
+  box-shadow:
+    0 0.75rem 2rem rgb(0 0 0 / 45%),
+    inset 0 0 0 1px rgb(255 255 255 / 4%);
+  clip-path: polygon(
+    0 0.75rem,
+    0.75rem 0,
+    100% 0,
+    100% calc(100% - 0.75rem),
+    calc(100% - 0.75rem) 100%,
+    0 100%
+  );
+  padding: var(--arc-space-2) var(--arc-space-3);
+  pointer-events: none;
+}
+
+.hex-tooltip__eyebrow {
+  margin: 0 0 0.25rem;
+  color: var(--arc-ui-hover);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.hex-tooltip__title {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.hex-tooltip__details {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem 1rem;
+  margin: var(--arc-space-2) 0 0;
+}
+
+.hex-tooltip__row {
+  display: grid;
+  gap: 0.1rem;
+}
+
+.hex-tooltip__row dt {
+  color: var(--arc-ui-text-muted);
+  font-size: 0.6875rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.hex-tooltip__row dd {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
 .world-renderer {
   width: 100%;
   height: 100%;
@@ -425,6 +486,11 @@ a:focus-visible {
 
   .game-shell__actions .button {
     flex: 1 1 10rem;
+  }
+
+  .hex-tooltip {
+    inset: auto clamp(0.75rem, 2vw, 1.5rem) clamp(0.75rem, 2vw, 1.5rem);
+    width: auto;
   }
 }
 

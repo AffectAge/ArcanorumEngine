@@ -85,6 +85,9 @@ test('registers, restores protected access, and handles both session durations',
   await expect(page.getByText(copy.login)).toBeVisible();
   const worldCanvas = page.locator('.world-renderer canvas');
   await expect(worldCanvas).toBeVisible();
+  await worldCanvas.click({ position: { x: 640, y: 360 } });
+  await expect(page.locator('.hex-tooltip')).toBeVisible();
+  await expect(page.locator('.hex-tooltip__details .hex-tooltip__row')).toHaveCount(7);
   const mapBounds = await page.locator('.game-shell__map-region').evaluate((element) => {
     const bounds = element.getBoundingClientRect();
 

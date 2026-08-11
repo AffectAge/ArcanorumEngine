@@ -2,6 +2,7 @@ node_modules/
 dist/
 data/
 /world/
+/.removed-world-and-biome-*/
 .env
 /.dev-runtime.json
 /.dev-server-configuration.json

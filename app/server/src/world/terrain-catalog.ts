@@ -31,7 +31,7 @@ export function loadTerrainCatalog(): LoadedTerrainCatalog {
   }
 
   const catalog = TerrainCatalogSchema.parse(source);
-  for (const asset of [catalog.atlas, catalog.biomeAtlas, ...catalog.overlays]) {
+  for (const asset of [catalog.atlas, ...catalog.overlays]) {
     const assetPath = resolve(CLIENT_PUBLIC_PATH, `.${asset.url}`);
     if (!assetPath.startsWith(`${CLIENT_PUBLIC_PATH}\\`) && !assetPath.startsWith(`${CLIENT_PUBLIC_PATH}/`)) {
       throw new Error(`World renderer asset escapes the public directory: ${asset.url}`);

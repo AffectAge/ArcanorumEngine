@@ -4,7 +4,7 @@ import Database from 'better-sqlite3';
 
 export type SqliteDatabase = Database.Database;
 
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
 
 const CREATE_SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS schema_metadata (
@@ -65,7 +65,6 @@ CREATE TABLE IF NOT EXISTS world_hexes (
   q INTEGER NOT NULL,
   r INTEGER NOT NULL,
   terrain_id TEXT NOT NULL,
-  biome_id TEXT,
   elevation INTEGER NOT NULL CHECK (elevation BETWEEN 0 AND 1000),
   temperature INTEGER NOT NULL CHECK (temperature BETWEEN 0 AND 1000),
   rainfall INTEGER NOT NULL CHECK (rainfall BETWEEN 0 AND 1000),

@@ -13,13 +13,52 @@ export const WorldGenerationSchema = z
     continentCount: z.number().int().min(1).max(12),
     continentCoverage: z.number().min(0.08).max(0.72),
     continentMinimumSeparation: z.number().int().min(4).max(160),
-    continentCoastRoughness: z.number().min(0).max(0.45),
-    continentCoastNoiseScale: z.number().min(4).max(128),
+    outerOcean: z
+      .object({
+        hardWidth: z.number().int().min(1).max(160),
+        coastFalloffWidth: z.number().int().min(1).max(160),
+      })
+      .strict(),
+    continentalAxes: z
+      .object({
+        minimumCount: z.number().int().min(2).max(6),
+        maximumCount: z.number().int().min(2).max(6),
+        primaryLengthMinimumFactor: z.number().min(0.5).max(4),
+        primaryLengthMaximumFactor: z.number().min(0.5).max(4),
+        branchLengthMinimumFactor: z.number().min(0.25).max(3),
+        branchLengthMaximumFactor: z.number().min(0.25).max(3),
+        widthMinimumFactor: z.number().min(0.2).max(2),
+        widthMaximumFactor: z.number().min(0.2).max(2),
+        landThreshold: z.number().min(0.01).max(0.8),
+        separationWidth: z.number().min(1).max(32),
+        domainWarpScale: z.number().min(4).max(256),
+        domainWarpAmount: z.number().min(0).max(48),
+      })
+      .strict(),
+    coastNoise: z
+      .object({
+        macroScale: z.number().min(8).max(256),
+        macroAmplitude: z.number().min(0).max(0.6),
+        bayScale: z.number().min(3).max(128),
+        bayAmplitude: z.number().min(0).max(0.4),
+        detailScale: z.number().min(2).max(64),
+        detailAmplitude: z.number().min(0).max(0.15),
+      })
+      .strict(),
+    topology: z
+      .object({
+        smoothingPasses: z.number().int().min(0).max(2),
+        minimumIslandHexes: z.number().int().min(1).max(10_000),
+      })
+      .strict(),
     seaLevel: z.number().int().min(100).max(800),
     islandCount: z.number().int().min(0).max(200),
     islandMaximumRadius: z.number().int().min(1).max(16),
     seaCount: z.number().int().min(0).max(16),
     seaRadius: z.number().int().min(2).max(24),
+    seaChannelMinimumWidth: z.number().int().min(1).max(12),
+    seaChannelMaximumWidth: z.number().int().min(1).max(12),
+    seaChannelMeander: z.number().min(0).max(0.75),
     lakeCount: z.number().int().min(0).max(100),
     lakeRadius: z.number().int().min(1).max(12),
     coastalWaterWidth: z.number().int().min(1).max(3),
@@ -54,6 +93,55 @@ export const WorldGenerationSchema = z
         code: z.ZodIssueCode.custom,
         message: 'continentCoverage is too small for the requested continentCount.',
         path: ['continentCoverage'],
+      });
+    }
+
+    if (
+      value.outerOcean.hardWidth + value.outerOcean.coastFalloffWidth >=
+      Math.min(value.width, value.height) / 2
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'outerOcean hardWidth and coastFalloffWidth leave no usable interior.',
+        path: ['outerOcean'],
+      });
+    }
+
+    if (value.continentalAxes.minimumCount > value.continentalAxes.maximumCount) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'continentalAxes minimumCount cannot exceed maximumCount.',
+        path: ['continentalAxes', 'minimumCount'],
+      });
+    }
+
+    for (const [minimum, maximum, name] of [
+      [
+        value.continentalAxes.primaryLengthMinimumFactor,
+        value.continentalAxes.primaryLengthMaximumFactor,
+        'primaryLength',
+      ],
+      [
+        value.continentalAxes.branchLengthMinimumFactor,
+        value.continentalAxes.branchLengthMaximumFactor,
+        'branchLength',
+      ],
+      [value.continentalAxes.widthMinimumFactor, value.continentalAxes.widthMaximumFactor, 'width'],
+    ] as const) {
+      if (minimum > maximum) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `continentalAxes ${name} minimum cannot exceed maximum.`,
+          path: ['continentalAxes'],
+        });
+      }
+    }
+
+    if (value.seaChannelMinimumWidth > value.seaChannelMaximumWidth) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'seaChannelMinimumWidth cannot exceed seaChannelMaximumWidth.',
+        path: ['seaChannelMinimumWidth'],
       });
     }
 

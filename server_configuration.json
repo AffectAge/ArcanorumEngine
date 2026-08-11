@@ -15,13 +15,44 @@
       "continentCount": 3,
       "continentCoverage": 0.38,
       "continentMinimumSeparation": 24,
-      "continentCoastRoughness": 0.18,
-      "continentCoastNoiseScale": 22,
+      "outerOcean": {
+        "hardWidth": 18,
+        "coastFalloffWidth": 30
+      },
+      "continentalAxes": {
+        "minimumCount": 2,
+        "maximumCount": 4,
+        "primaryLengthMinimumFactor": 0.95,
+        "primaryLengthMaximumFactor": 1.35,
+        "branchLengthMinimumFactor": 0.45,
+        "branchLengthMaximumFactor": 0.95,
+        "widthMinimumFactor": 0.65,
+        "widthMaximumFactor": 0.85,
+        "landThreshold": 0.025,
+        "separationWidth": 7,
+        "domainWarpScale": 64,
+        "domainWarpAmount": 9
+      },
+      "coastNoise": {
+        "macroScale": 96,
+        "macroAmplitude": 0.22,
+        "bayScale": 28,
+        "bayAmplitude": 0.16,
+        "detailScale": 8,
+        "detailAmplitude": 0.045
+      },
+      "topology": {
+        "smoothingPasses": 1,
+        "minimumIslandHexes": 6
+      },
       "seaLevel": 530,
       "islandCount": 18,
       "islandMaximumRadius": 4,
       "seaCount": 1,
       "seaRadius": 7,
+      "seaChannelMinimumWidth": 2,
+      "seaChannelMaximumWidth": 4,
+      "seaChannelMeander": 0.32,
       "lakeCount": 9,
       "lakeRadius": 3,
       "coastalWaterWidth": 1,

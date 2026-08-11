@@ -22,7 +22,7 @@ These are original visual presets and copy-ready candidates. `terrain-atlas-pres
 - The river tile is shown over a dark neutral field to communicate an overlay layer; its blue is intentionally muted rather than neon.
 - `river-atlas-preset-v3.webp` contains only the river channels. It has no grass, terrain fill, roads, bridges, labels, or other features; it is intended to sit above the terrain atlas as an RGBA overlay.
 - `terrain-atlas-preset-v6.webp` contains only the five base terrain materials; roads, rivers, forests, and mountains remain separate layers.
-- The new terrain sheet keeps each biome self-contained and excludes roads/paths so infrastructure can remain a separate overlay system.
+- The terrain sheet keeps each base terrain material self-contained and excludes roads/paths so infrastructure can remain a separate overlay system.
 - The v5 terrain atlas is runtime-sized and excludes roads, rivers, forests, mountains, and other overlays. Its hex corners are transparent.
 
 ## Manual evaluation / copying
@@ -33,5 +33,5 @@ These are original visual presets and copy-ready candidates. `terrain-atlas-pres
 4. For overlays, test forest and road together. The road should clear a stable corridor before tree placement; do not paint the road over existing canopies.
 5. For the copy-ready river candidate, verify dimensions and alpha, then manually copy it over the runtime river atlas only after backing up the current file.
 6. Place neighboring river frames together and verify that branch endpoints meet cleanly without sudden width changes or bright seams.
-7. For terrain, test biome contrast against the base land material and keep roads/paths as a later composited layer.
+7. For terrain, test contrast between the base terrain materials and keep roads/paths as a later composited layer.
 8. For v5 specifically, confirm the deeper/calmer ocean, warmer lighter sea, subdued coastal water, clean blue-green lake, and four broad land accents at strategic zoom.
