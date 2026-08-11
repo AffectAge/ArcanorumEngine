@@ -89,12 +89,16 @@ class WorldScene extends Phaser.Scene {
   }
 
   preload(): void {
-    const { atlas } = this.world.map.terrain;
+    const { atlas, biomeAtlas } = this.world.map.terrain;
     const riverAtlas = requiredRiverAtlas(this.world);
 
     this.load.spritesheet(atlas.key, atlas.url, {
       frameWidth: atlas.frameWidth,
       frameHeight: atlas.frameHeight,
+    });
+    this.load.spritesheet(biomeAtlas.key, biomeAtlas.url, {
+      frameWidth: biomeAtlas.frameWidth,
+      frameHeight: biomeAtlas.frameHeight,
     });
     this.load.spritesheet(riverAtlas.key, riverAtlas.url, {
       frameWidth: riverAtlas.frameWidth,
@@ -113,10 +117,12 @@ class WorldScene extends Phaser.Scene {
     try {
       const map = createTilemap(this, this.world);
       const terrainLayer = createTerrainLayer(map, this.world);
+      const biomeLayer = createBiomeLayer(map, this.world);
       const riverLayer = createRiverLayer(map, this.world);
 
       terrainLayer.setDepth(0);
-      riverLayer.setDepth(1);
+      biomeLayer.setDepth(1);
+      riverLayer.setDepth(2);
       this.configureCamera(map);
       this.bindCameraInput();
       this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.onShutdown, this);
@@ -359,6 +365,7 @@ function pointerMidpoint(
 
 function createTilemap(scene: Phaser.Scene, world: WorldMapResponse): Phaser.Tilemaps.Tilemap {
   const atlas = world.map.terrain.atlas;
+  const biomeAtlas = world.map.terrain.biomeAtlas;
   const riverAtlas = requiredRiverAtlas(world);
   const mapData = Phaser.Tilemaps.Parsers.Parse(
     'world.generated',
@@ -390,14 +397,34 @@ function createTilemap(scene: Phaser.Scene, world: WorldMapResponse): Phaser.Til
     riverAtlas.frameHeight,
     0,
     0,
+    atlas.columns + biomeAtlas.columns + 1,
+  );
+  const biomeTileset = map.addTilesetImage(
+    'world-biome',
+    biomeAtlas.key,
+    biomeAtlas.frameWidth,
+    biomeAtlas.frameHeight,
+    0,
+    0,
     atlas.columns + 1,
   );
 
-  if (terrainTileset === null || riverTileset === null) {
+  if (terrainTileset === null || biomeTileset === null || riverTileset === null) {
     throw new Error('Generated world could not bind its required tile atlas.');
   }
 
   return map;
+}
+
+function createBiomeLayer(
+  map: Phaser.Tilemaps.Tilemap,
+  world: WorldMapResponse,
+): Phaser.Tilemaps.TilemapLayer {
+  const layer = map.createLayer('biomes', 'world-biome', 0, 0);
+  if (!(layer instanceof Phaser.Tilemaps.TilemapLayer)) {
+    throw new Error('Generated world biome layer could not be created.');
+  }
+  return layer;
 }
 
 function createTerrainLayer(
@@ -427,6 +454,7 @@ function createTiledMapData(world: WorldMapResponse): object {
   const terrainFrameById = new Map(
     map.terrain.terrainTypes.map((terrainType) => [terrainType.id, terrainType.frame]),
   );
+  const biomeFrameById = new Map(map.terrain.biomeTypes.map((biomeType) => [biomeType.id, biomeType.frame]));
   const riverMasks = createRiverMasks(world);
   const terrainData = map.hexes.map((hex) => {
     const frame = terrainFrameById.get(hex.terrainId);
@@ -435,8 +463,22 @@ function createTiledMapData(world: WorldMapResponse): object {
     }
     return frame + 1;
   });
+  const biomeData = map.hexes.map((hex) => {
+    if (hex.biomeId === undefined) {
+      return 0;
+    }
+    const frame = biomeFrameById.get(hex.biomeId);
+    if (frame === undefined) {
+      throw new Error(`Map references biome without an atlas frame: ${hex.biomeId}`);
+    }
+    return frame + map.terrain.atlas.columns + 1;
+  });
   const riverData = map.hexes.map(
-    (hex) => (riverMasks.get(`${hex.q}:${hex.r}`) ?? 0) + map.terrain.atlas.columns + 1,
+    (hex) =>
+      (riverMasks.get(`${hex.q}:${hex.r}`) ?? 0) +
+      map.terrain.atlas.columns +
+      map.terrain.biomeAtlas.columns +
+      1,
   );
   const riverAtlas = requiredRiverAtlas(world);
 
@@ -459,9 +501,21 @@ function createTiledMapData(world: WorldMapResponse): object {
         y: 0,
       },
       {
-        data: riverData,
+        data: biomeData,
         height: map.height,
         id: 2,
+        name: 'biomes',
+        opacity: 1,
+        type: 'tilelayer',
+        visible: true,
+        width: map.width,
+        x: 0,
+        y: 0,
+      },
+      {
+        data: riverData,
+        height: map.height,
+        id: 3,
         name: 'rivers',
         opacity: 1,
         type: 'tilelayer',
@@ -471,7 +525,7 @@ function createTiledMapData(world: WorldMapResponse): object {
         y: 0,
       },
     ],
-    nextlayerid: 3,
+    nextlayerid: 4,
     nextobjectid: 1,
     orientation: 'hexagonal',
     renderorder: 'right-down',
@@ -498,8 +552,21 @@ function createTiledMapData(world: WorldMapResponse): object {
         tilewidth: map.terrain.atlas.frameWidth,
       },
       {
-        columns: riverAtlas.columns,
+        columns: map.terrain.biomeAtlas.columns,
         firstgid: map.terrain.atlas.columns + 1,
+        image: map.terrain.biomeAtlas.url,
+        imageheight: map.terrain.biomeAtlas.frameHeight,
+        imagewidth: map.terrain.biomeAtlas.frameWidth * map.terrain.biomeAtlas.columns,
+        margin: 0,
+        name: 'world-biome',
+        spacing: 0,
+        tilecount: map.terrain.biomeAtlas.columns,
+        tileheight: map.terrain.biomeAtlas.frameHeight,
+        tilewidth: map.terrain.biomeAtlas.frameWidth,
+      },
+      {
+        columns: riverAtlas.columns,
+        firstgid: map.terrain.atlas.columns + map.terrain.biomeAtlas.columns + 1,
         image: riverAtlas.url,
         imageheight: riverAtlas.frameHeight * riverAtlas.rows,
         imagewidth: riverAtlas.frameWidth * riverAtlas.columns,

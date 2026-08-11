@@ -13,6 +13,8 @@ export const WorldGenerationSchema = z
     continentCount: z.number().int().min(1).max(12),
     continentCoverage: z.number().min(0.08).max(0.72),
     continentMinimumSeparation: z.number().int().min(4).max(160),
+    continentCoastRoughness: z.number().min(0).max(0.45),
+    continentCoastNoiseScale: z.number().min(4).max(128),
     seaLevel: z.number().int().min(100).max(800),
     islandCount: z.number().int().min(0).max(200),
     islandMaximumRadius: z.number().int().min(1).max(16),
@@ -21,9 +23,21 @@ export const WorldGenerationSchema = z
     lakeCount: z.number().int().min(0).max(100),
     lakeRadius: z.number().int().min(1).max(12),
     coastalWaterWidth: z.number().int().min(1).max(3),
-    riverCount: z.number().int().min(0).max(200),
-    riverMinimumSourceElevation: z.number().int().min(1).max(999),
-    riverMinimumSourceDistance: z.number().int().min(2).max(160),
+    mountainRangeCount: z.number().int().min(0).max(64),
+    mountainRangeMinimumLength: z.number().int().min(3).max(96),
+    mountainRangeMaximumLength: z.number().int().min(3).max(160),
+    mountainRangeWidth: z.number().min(1).max(24),
+    mountainRangeHeight: z.number().int().min(10).max(600),
+    riverFlowThreshold: z.number().min(0.0001).max(0.25),
+    climate: z
+      .object({
+        equatorialTemperature: z.number().int().min(0).max(1000),
+        polarTemperature: z.number().int().min(0).max(1000),
+        elevationCooling: z.number().min(0).max(2),
+        prevailingWind: z.enum(['west_to_east', 'east_to_west']),
+        rainfallNoise: z.number().int().min(0).max(250),
+      })
+      .strict(),
   })
   .strict()
   .superRefine((value, context) => {
@@ -40,6 +54,22 @@ export const WorldGenerationSchema = z
         code: z.ZodIssueCode.custom,
         message: 'continentCoverage is too small for the requested continentCount.',
         path: ['continentCoverage'],
+      });
+    }
+
+    if (value.mountainRangeMinimumLength > value.mountainRangeMaximumLength) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'mountainRangeMinimumLength cannot exceed mountainRangeMaximumLength.',
+        path: ['mountainRangeMinimumLength'],
+      });
+    }
+
+    if (value.climate.polarTemperature > value.climate.equatorialTemperature) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'polarTemperature cannot exceed equatorialTemperature.',
+        path: ['climate', 'polarTemperature'],
       });
     }
   });

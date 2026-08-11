@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { z } from 'zod';
 import {
+  WorldGenerationDiagnosticsSchema,
   WorldMapResponseSchema,
   type WorldHex,
   type WorldLandmass,
@@ -145,6 +146,8 @@ export class WorldService {
       hexes: this.database
         .prepare(
           `SELECT q, r, terrain_id AS terrainId, elevation,
+                  biome_id AS biomeId, temperature, rainfall,
+                  flow_accumulation AS flowAccumulation,
                   landmass_id AS landmassId, water_body_id AS waterBodyId
            FROM world_hexes
            ORDER BY r ASC, q ASC`,
@@ -164,6 +167,7 @@ export class WorldService {
       waterBodies: this.database
         .prepare('SELECT id, kind, hex_count AS hexCount FROM world_water_bodies ORDER BY id ASC')
         .all() as WorldWaterBody[],
+      diagnostics: readWorldDiagnostics(this.database),
     };
 
     return WorldMapResponseSchema.parse({
@@ -184,17 +188,26 @@ export class WorldService {
       this.database
         .prepare('INSERT INTO world_metadata (metadata_key, metadata_value) VALUES (?, ?)')
         .run('terrain_catalog_fingerprint', this.preparedWorld.snapshot.terrainCatalogFingerprint);
+      this.database
+        .prepare('INSERT INTO world_metadata (metadata_key, metadata_value) VALUES (?, ?)')
+        .run('generation_diagnostics', JSON.stringify(world.diagnostics));
 
       const insertHex = this.database.prepare(
-        `INSERT INTO world_hexes (q, r, terrain_id, elevation, landmass_id, water_body_id)
-         VALUES (?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO world_hexes (
+          q, r, terrain_id, biome_id, elevation, temperature, rainfall,
+          flow_accumulation, landmass_id, water_body_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       );
       for (const hex of world.hexes) {
         insertHex.run(
           hex.q,
           hex.r,
           hex.terrainId,
+          hex.biomeId ?? null,
           hex.elevation,
+          hex.temperature,
+          hex.rainfall,
+          hex.flowAccumulation,
           hex.landmassId ?? null,
           hex.waterBodyId ?? null,
         );
@@ -261,7 +274,11 @@ function toWorldHex(row: unknown): WorldHex {
     q: number;
     r: number;
     terrainId: string;
+    biomeId: string | null;
     elevation: number;
+    temperature: number;
+    rainfall: number;
+    flowAccumulation: number;
     landmassId: string | null;
     waterBodyId: string | null;
   };
@@ -271,7 +288,29 @@ function toWorldHex(row: unknown): WorldHex {
     r: source.r,
     terrainId: source.terrainId,
     elevation: source.elevation,
+    temperature: source.temperature,
+    rainfall: source.rainfall,
+    flowAccumulation: source.flowAccumulation,
+    ...(source.biomeId === null ? {} : { biomeId: source.biomeId }),
     ...(source.landmassId === null ? {} : { landmassId: source.landmassId }),
     ...(source.waterBodyId === null ? {} : { waterBodyId: source.waterBodyId }),
   };
+}
+
+function readWorldDiagnostics(database: SqliteDatabase) {
+  const row = database
+    .prepare("SELECT metadata_value FROM world_metadata WHERE metadata_key = 'generation_diagnostics'")
+    .get() as { metadata_value: string } | undefined;
+  if (row === undefined) {
+    throw new Error('World database is missing required generation diagnostics.');
+  }
+
+  let source: unknown;
+  try {
+    source = JSON.parse(row.metadata_value);
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    throw new Error(`World generation diagnostics are invalid JSON: ${reason}`);
+  }
+  return WorldGenerationDiagnosticsSchema.parse(source);
 }

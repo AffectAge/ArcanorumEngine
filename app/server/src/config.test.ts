@@ -26,6 +26,8 @@ const VALID_SERVER_CONFIGURATION = ServerConfigurationSchema.parse({
       continentCount: 2,
       continentCoverage: 0.36,
       continentMinimumSeparation: 12,
+      continentCoastRoughness: 0.16,
+      continentCoastNoiseScale: 12,
       seaLevel: 520,
       islandCount: 5,
       islandMaximumRadius: 3,
@@ -34,9 +36,19 @@ const VALID_SERVER_CONFIGURATION = ServerConfigurationSchema.parse({
       lakeCount: 3,
       lakeRadius: 2,
       coastalWaterWidth: 1,
-      riverCount: 4,
-      riverMinimumSourceElevation: 640,
-      riverMinimumSourceDistance: 5,
+      mountainRangeCount: 2,
+      mountainRangeMinimumLength: 7,
+      mountainRangeMaximumLength: 14,
+      mountainRangeWidth: 3,
+      mountainRangeHeight: 230,
+      riverFlowThreshold: 0.012,
+      climate: {
+        equatorialTemperature: 880,
+        polarTemperature: 220,
+        elevationCooling: 0.55,
+        prevailingWind: 'west_to_east',
+        rainfallNoise: 45,
+      },
     },
   },
 });
@@ -52,11 +64,14 @@ describe('server configuration', () => {
 
   it('requires HTTPS and secure cookies for production', () => {
     expect(() =>
-      parseServerConfig({
-        ...VALID_ENVIRONMENT,
-        NODE_ENV: 'production',
-        COOKIE_SECURE: 'false',
-      }, VALID_SERVER_CONFIGURATION),
+      parseServerConfig(
+        {
+          ...VALID_ENVIRONMENT,
+          NODE_ENV: 'production',
+          COOKIE_SECURE: 'false',
+        },
+        VALID_SERVER_CONFIGURATION,
+      ),
     ).toThrow();
   });
 
@@ -68,11 +83,14 @@ describe('server configuration', () => {
         allowedOrigins: ['https://arcanorum.example'],
       },
     });
-    const config = parseServerConfig({
-      ...VALID_ENVIRONMENT,
-      NODE_ENV: 'production',
-      COOKIE_SECURE: 'true',
-    }, configuration);
+    const config = parseServerConfig(
+      {
+        ...VALID_ENVIRONMENT,
+        NODE_ENV: 'production',
+        COOKIE_SECURE: 'true',
+      },
+      configuration,
+    );
 
     expect(config.staticClientDir).toMatch(/[\\/]app[\\/]client[\\/]dist$/);
   });

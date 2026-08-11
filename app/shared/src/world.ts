@@ -27,6 +27,34 @@ export const WorldOverlayAtlasSchema = z
 
 export type WorldOverlayAtlas = z.infer<typeof WorldOverlayAtlasSchema>;
 
+export const ClimateRangeSchema = z
+  .object({
+    min: z.number().int().min(0).max(1000),
+    max: z.number().int().min(0).max(1000),
+  })
+  .strict()
+  .superRefine((range, context) => {
+    if (range.min > range.max) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Climate range minimum cannot exceed its maximum.',
+      });
+    }
+  });
+
+export type ClimateRange = z.infer<typeof ClimateRangeSchema>;
+
+export const BiomeTypeSchema = z
+  .object({
+    id: StableIdSchema,
+    frame: z.number().int().nonnegative(),
+    temperature: ClimateRangeSchema,
+    rainfall: ClimateRangeSchema,
+  })
+  .strict();
+
+export type BiomeType = z.infer<typeof BiomeTypeSchema>;
+
 export const TerrainTypeSchema = z
   .object({
     id: StableIdSchema,
@@ -39,7 +67,9 @@ export const TerrainTypeSchema = z
 export const TerrainCatalogSchema = z
   .object({
     atlas: TerrainAtlasSchema,
+    biomeAtlas: TerrainAtlasSchema,
     terrainTypes: z.array(TerrainTypeSchema).min(1),
+    biomeTypes: z.array(BiomeTypeSchema).min(1),
     overlays: z.array(WorldOverlayAtlasSchema),
   })
   .strict()
@@ -122,6 +152,36 @@ export const TerrainCatalogSchema = z
         path: ['overlays'],
       });
     }
+
+    const biomeIds = new Set<string>();
+    const biomeFrames = new Set<number>();
+    for (const biome of catalog.biomeTypes) {
+      if (biomeIds.has(biome.id)) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `Duplicate biome ID: ${biome.id}`,
+          path: ['biomeTypes'],
+        });
+      }
+      biomeIds.add(biome.id);
+
+      if (biomeFrames.has(biome.frame)) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `Duplicate biome frame: ${biome.frame}`,
+          path: ['biomeTypes'],
+        });
+      }
+      biomeFrames.add(biome.frame);
+
+      if (biome.frame >= catalog.biomeAtlas.columns) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `Biome frame ${biome.frame} exceeds atlas columns.`,
+          path: ['biomeTypes'],
+        });
+      }
+    }
   });
 
 export type TerrainCatalog = z.infer<typeof TerrainCatalogSchema>;
@@ -132,7 +192,11 @@ export const WorldHexSchema = z
     q: z.number().int().nonnegative(),
     r: z.number().int().nonnegative(),
     terrainId: StableIdSchema,
+    biomeId: StableIdSchema.optional(),
     elevation: z.number().int().min(0).max(1000),
+    temperature: z.number().int().min(0).max(1000),
+    rainfall: z.number().int().min(0).max(1000),
+    flowAccumulation: z.number().int().nonnegative(),
     landmassId: StableIdSchema.optional(),
     waterBodyId: StableIdSchema.optional(),
   })
@@ -172,6 +236,25 @@ export const WorldWaterBodySchema = z
 
 export type WorldWaterBody = z.infer<typeof WorldWaterBodySchema>;
 
+export const WorldGenerationStageDiagnosticSchema = z
+  .object({
+    id: StableIdSchema,
+    checksum: z.string().regex(/^[a-f0-9]{64}$/),
+  })
+  .strict();
+
+export const WorldGenerationDiagnosticsSchema = z
+  .object({
+    stages: z.array(WorldGenerationStageDiagnosticSchema).min(1),
+    landHexCount: z.number().int().nonnegative(),
+    riverEdgeCount: z.number().int().nonnegative(),
+    maximumElevation: z.number().int().min(0).max(1000),
+    maximumFlowAccumulation: z.number().int().nonnegative(),
+  })
+  .strict();
+
+export type WorldGenerationDiagnostics = z.infer<typeof WorldGenerationDiagnosticsSchema>;
+
 export const WorldMapResponseSchema = z
   .object({
     worldName: z.string().min(1),
@@ -188,6 +271,7 @@ export const WorldMapResponseSchema = z
         rivers: z.array(WorldRiverEdgeSchema),
         landmasses: z.array(WorldLandmassSchema),
         waterBodies: z.array(WorldWaterBodySchema),
+        diagnostics: WorldGenerationDiagnosticsSchema,
       })
       .strict(),
   })

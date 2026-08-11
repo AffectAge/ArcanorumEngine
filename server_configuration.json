@@ -15,6 +15,8 @@
       "continentCount": 3,
       "continentCoverage": 0.38,
       "continentMinimumSeparation": 24,
+      "continentCoastRoughness": 0.18,
+      "continentCoastNoiseScale": 22,
       "seaLevel": 530,
       "islandCount": 18,
       "islandMaximumRadius": 4,
@@ -23,9 +25,19 @@
       "lakeCount": 9,
       "lakeRadius": 3,
       "coastalWaterWidth": 1,
-      "riverCount": 20,
-      "riverMinimumSourceElevation": 680,
-      "riverMinimumSourceDistance": 7
+      "mountainRangeCount": 9,
+      "mountainRangeMinimumLength": 18,
+      "mountainRangeMaximumLength": 52,
+      "mountainRangeWidth": 4,
+      "mountainRangeHeight": 260,
+      "riverFlowThreshold": 0.015,
+      "climate": {
+        "equatorialTemperature": 900,
+        "polarTemperature": 230,
+        "elevationCooling": 0.55,
+        "prevailingWind": "west_to_east",
+        "rainfallNoise": 55
+      }
     }
   }
 }

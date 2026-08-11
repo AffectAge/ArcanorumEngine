@@ -4,6 +4,7 @@ import { dirname, resolve } from 'node:path';
 import { chromium } from '@playwright/test';
 
 const terrainOutputPath = resolve('app/client/public/assets/world/terrain/terrain-atlas.webp');
+const biomeOutputPath = resolve('app/client/public/assets/world/terrain/biome-atlas.webp');
 const riverOutputPath = resolve('app/client/public/assets/world/terrain/river-atlas.webp');
 const chromePath =
   process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE ?? 'C:/Program Files/Google/Chrome/Application/chrome.exe';
@@ -15,6 +16,14 @@ try {
   await mkdir(dirname(terrainOutputPath), { recursive: true });
   await page.screenshot({
     path: terrainOutputPath,
+    type: 'webp',
+    omitBackground: true,
+    animations: 'disabled',
+  });
+  await page.setViewportSize({ width: 864, height: 84 });
+  await page.setContent(biomeAtlasSvg());
+  await page.screenshot({
+    path: biomeOutputPath,
     type: 'webp',
     omitBackground: true,
     animations: 'disabled',
@@ -106,6 +115,47 @@ function riverAtlasSvg() {
   return `<!doctype html>
     <html><body style="margin:0;background:transparent;overflow:hidden">
       <svg xmlns="http://www.w3.org/2000/svg" width="768" height="672" viewBox="0 0 768 672">
+        ${frames}
+      </svg>
+    </body></html>`;
+}
+
+function biomeAtlasSvg() {
+  const biomeFrames = [
+    { fill: '#dbe8e9', detail: '#91abb2', pattern: 'snow-speckles' },
+    { fill: '#829591', detail: '#c4d0b5', pattern: 'tundra-grass' },
+    { fill: '#285b4f', detail: '#9bb86d', pattern: 'conifers' },
+    { fill: '#a77b3d', detail: '#dbc276', pattern: 'dunes' },
+    { fill: '#6f9d47', detail: '#c2d36e', pattern: 'grass' },
+    { fill: '#356b39', detail: '#b1ca70', pattern: 'broadleaf' },
+    { fill: '#bd7131', detail: '#f0c66d', pattern: 'dunes' },
+    { fill: '#a3913c', detail: '#d8d273', pattern: 'savanna' },
+    { fill: '#185c3b', detail: '#8ec86f', pattern: 'rainforest' },
+  ];
+  const frames = biomeFrames
+    .map(
+      (frame, index) => `
+        <g transform="translate(${index * 96},0)">
+          <polygon points="24,3 72,3 92,42 72,81 24,81 4,42" fill="${frame.fill}" opacity=".86" />
+          <polygon points="24,4 72,4 91,42 72,80 24,80 5,42" fill="url(#${frame.pattern})" opacity=".72" />
+          <path d="M24 4H72L91 42" fill="none" stroke="${frame.detail}" stroke-width="1" opacity=".48" />
+        </g>`,
+    )
+    .join('');
+
+  return `<!doctype html>
+    <html><body style="margin:0;background:transparent;overflow:hidden">
+      <svg xmlns="http://www.w3.org/2000/svg" width="864" height="84" viewBox="0 0 864 84">
+        <defs>
+          <pattern id="snow-speckles" width="15" height="13" patternUnits="userSpaceOnUse"><circle cx="3" cy="3" r="1.2" fill="#ffffff"/><circle cx="11" cy="9" r=".9" fill="#ffffff"/></pattern>
+          <pattern id="tundra-grass" width="13" height="13" patternUnits="userSpaceOnUse"><path d="M2 12l2-5 2 5M8 12l1-6 2 6" fill="none" stroke="#d7e0bd" stroke-width="1"/></pattern>
+          <pattern id="conifers" width="16" height="15" patternUnits="userSpaceOnUse"><path d="M4 13V5l-3 5h6L4 2l-3 5h6M12 14V7l-3 5h6l-3-7-3 5h6" fill="#9cbd70" opacity=".85"/></pattern>
+          <pattern id="dunes" width="19" height="13" patternUnits="userSpaceOnUse"><path d="M0 10c5-6 10 2 19-5" fill="none" stroke="#f0cf78" stroke-width="1.4"/></pattern>
+          <pattern id="grass" width="14" height="14" patternUnits="userSpaceOnUse"><path d="M3 13l2-7 1 7M9 13l2-5 1 5" fill="none" stroke="#d7dc7d" stroke-width="1.2"/></pattern>
+          <pattern id="broadleaf" width="16" height="15" patternUnits="userSpaceOnUse"><circle cx="4" cy="5" r="3" fill="#a5c86e"/><circle cx="10" cy="9" r="3.5" fill="#a5c86e"/><path d="M4 8v5M10 12v2" stroke="#273c25" stroke-width="1"/></pattern>
+          <pattern id="savanna" width="20" height="16" patternUnits="userSpaceOnUse"><path d="M5 14V8m0 0c-4 0-3-4 0-3 1-3 4-1 2 2m8 7V9m0 0c-3 0-3-3 0-3 1-2 3 0 2 2" fill="none" stroke="#d9d176" stroke-width="1.25"/></pattern>
+          <pattern id="rainforest" width="17" height="16" patternUnits="userSpaceOnUse"><circle cx="4" cy="5" r="3.5" fill="#78bd69"/><circle cx="10" cy="8" r="4" fill="#73ae5e"/><circle cx="14" cy="3" r="2.5" fill="#91d47a"/></pattern>
+        </defs>
         ${frames}
       </svg>
     </body></html>`;
