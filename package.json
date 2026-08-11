@@ -8,6 +8,9 @@
     "app/shared"
   ],
   "scripts": {
+    "dev": "node tools/dev-runtime.mjs start",
+    "dev:stop": "node tools/dev-runtime.mjs stop",
+    "dev:status": "node tools/dev-runtime.mjs status",
     "dev:client": "npm run dev --workspace @arcanorum/client",
     "dev:server": "npm run dev --workspace @arcanorum/server",
     "build": "npm run build --workspace @arcanorum/client",

@@ -3,6 +3,8 @@ dist/
 data/
 /world/
 .env
+/.dev-runtime.json
+/.dev-server-configuration.json
 playwright-report/
 test-results/
 coverage/
