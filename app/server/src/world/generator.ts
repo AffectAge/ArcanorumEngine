@@ -50,6 +50,10 @@ type ContinentPlan = {
   readonly axes: readonly ContinentAxis[];
 };
 
+type ContinentShape = {
+  readonly axes: readonly ContinentAxis[];
+};
+
 type MapPosition = {
   readonly x: number;
   readonly y: number;
@@ -201,17 +205,8 @@ function createContinentPlans(
   random: SeededRandom,
 ): readonly ContinentPlan[] {
   const radius = calculateContinentRadius(configuration);
-  const minimumSeparation = Math.max(configuration.continentMinimumSeparation, Math.ceil(radius * 2.6));
-  const centers = selectContinentCenters(
-    grid,
-    configuration.continentCount,
-    minimumSeparation,
-    configuration.outerOcean.hardWidth + configuration.outerOcean.coastFalloffWidth + 1,
-    random,
-  );
-
-  return centers.map((centerIndex) => {
-    const center = mapPosition(grid.coordinateAt(centerIndex));
+  const shapes = Array.from({ length: configuration.continentCount }, () => {
+    const center = { x: 0, y: 0 };
     const axisCount = randomBetweenInteger(
       random,
       configuration.continentalAxes.minimumCount,
@@ -254,7 +249,22 @@ function createContinentPlans(
       });
     }
 
-    return { center, axes };
+    return { axes };
+  });
+  const minimumSeparation = Math.max(configuration.continentMinimumSeparation, Math.ceil(radius));
+  const centers = selectContinentCenters(grid, shapes, configuration, minimumSeparation, random);
+
+  return shapes.map((shape, index) => {
+    const centerIndex = requiredNumber(centers, index);
+    const center = mapPosition(grid.coordinateAt(centerIndex));
+    return {
+      center,
+      axes: shape.axes.map((axis) => ({
+        start: translatePosition(axis.start, center),
+        end: translatePosition(axis.end, center),
+        width: axis.width,
+      })),
+    };
   });
 }
 
@@ -324,17 +334,11 @@ function applyContinentalLand(
       cell.q / configuration.coastNoise.detailScale + 307,
       cell.r / configuration.coastNoise.detailScale - 251,
     );
-    const edgeInfluence = smoothstep(
-      configuration.outerOcean.hardWidth,
-      configuration.outerOcean.hardWidth + configuration.outerOcean.coastFalloffWidth,
-      distanceToEdge,
-    );
     const landPotential =
       (axisStrength +
-        macro * configuration.coastNoise.macroAmplitude * (0.35 + axisStrength * 0.65) +
+        macro * configuration.coastNoise.macroAmplitude * coastBand +
         (bays * configuration.coastNoise.bayAmplitude + detail * configuration.coastNoise.detailAmplitude) *
           coastBand) *
-      edgeInfluence *
       separationInfluence;
 
     if (landPotential <= configuration.continentalAxes.landThreshold) {
@@ -365,7 +369,7 @@ function addPlannedIslands(
       radius,
       false,
       edgeDistance,
-      configuration.outerOcean.hardWidth + configuration.outerOcean.coastFalloffWidth,
+      configuration.outerOcean.hardWidth + configuration.continentalPlacement.edgeClearance,
       undefined,
       random,
     );
@@ -654,33 +658,65 @@ function calculateContinentRadius(configuration: WorldGenerationConfig): number 
 
 function selectContinentCenters(
   grid: HexGrid,
-  count: number,
+  shapes: readonly ContinentShape[],
+  configuration: WorldGenerationConfig,
   minimumSeparation: number,
-  edgeInset: number,
   random: SeededRandom,
 ): readonly number[] {
-  const candidates = shuffle(
-    Array.from({ length: grid.size }, (_, index) => index).filter((index) =>
-      grid.isInterior(index, edgeInset),
+  const candidateSets = shapes.map((shape) =>
+    shuffle(
+      Array.from({ length: grid.size }, (_, index) => index).filter((index) =>
+        continentShapeFitsInsideWorld(shape, mapPosition(grid.coordinateAt(index)), grid, configuration),
+      ),
+      random,
     ),
-    random,
   );
+  const firstCandidates = candidateSets[0];
+  if (firstCandidates === undefined) {
+    throw new Error('World generation did not create any continent placement candidates.');
+  }
 
-  for (let attempt = 0; attempt < Math.min(64, candidates.length); attempt += 1) {
-    const first = candidates[attempt];
+  for (let attempt = 0; attempt < Math.min(64, firstCandidates.length); attempt += 1) {
+    const first = firstCandidates[attempt];
     if (first === undefined) {
       break;
     }
     const centers = [first];
 
-    while (centers.length < count) {
+    for (let shapeIndex = 1; shapeIndex < shapes.length; shapeIndex += 1) {
+      const candidates = candidateSets[shapeIndex];
+      if (candidates === undefined) {
+        throw new Error(`World generation is missing candidates for continent shape ${shapeIndex}.`);
+      }
       let nextCenter: number | undefined;
       let greatestMinimumDistance = -1;
       for (const candidate of candidates) {
         const nearestCenterDistance = minimum(
           centers.map((center) => grid.distanceBetween(center, candidate)),
         );
-        if (nearestCenterDistance >= minimumSeparation && nearestCenterDistance > greatestMinimumDistance) {
+        const candidatePosition = mapPosition(grid.coordinateAt(candidate));
+        const hasWaterGap = centers.every((center, previousShapeIndex) => {
+          const previousShape = shapes[previousShapeIndex];
+          if (previousShape === undefined) {
+            throw new Error(`World generation is missing continent shape ${previousShapeIndex}.`);
+          }
+          const currentShape = shapes[shapeIndex];
+          if (currentShape === undefined) {
+            throw new Error(`World generation is missing continent shape ${shapeIndex}.`);
+          }
+          return continentShapesHaveWaterGap(
+            previousShape,
+            mapPosition(grid.coordinateAt(center)),
+            currentShape,
+            candidatePosition,
+            configuration.continentalPlacement.edgeClearance,
+          );
+        });
+        if (
+          nearestCenterDistance >= minimumSeparation &&
+          hasWaterGap &&
+          nearestCenterDistance > greatestMinimumDistance
+        ) {
           nextCenter = candidate;
           greatestMinimumDistance = nearestCenterDistance;
         }
@@ -691,14 +727,102 @@ function selectContinentCenters(
       centers.push(nextCenter);
     }
 
-    if (centers.length === count) {
+    if (centers.length === shapes.length) {
       return centers;
     }
   }
 
   throw new Error(
-    `World generation cannot place ${count} continents with separation ${minimumSeparation} on this map.`,
+    `World generation cannot place ${shapes.length} complete continent shapes with separation ${minimumSeparation} on this map.`,
   );
+}
+
+function continentShapeFitsInsideWorld(
+  shape: ContinentShape,
+  center: MapPosition,
+  grid: HexGrid,
+  configuration: WorldGenerationConfig,
+): boolean {
+  const safetyMargin =
+    configuration.outerOcean.hardWidth +
+    configuration.continentalPlacement.edgeClearance +
+    configuration.continentalAxes.domainWarpAmount;
+  const maximumX = grid.width - 1;
+  const maximumY = grid.height - 0.5;
+
+  return shape.axes.every((axis) =>
+    [axis.start, axis.end].every((endpoint) => {
+      const translated = translatePosition(endpoint, center);
+      const requiredClearance = axis.width + safetyMargin;
+      return (
+        translated.x - requiredClearance >= 0 &&
+        translated.x + requiredClearance <= maximumX &&
+        translated.y - requiredClearance >= 0 &&
+        translated.y + requiredClearance <= maximumY
+      );
+    }),
+  );
+}
+
+function continentShapesHaveWaterGap(
+  leftShape: ContinentShape,
+  leftCenter: MapPosition,
+  rightShape: ContinentShape,
+  rightCenter: MapPosition,
+  waterGap: number,
+): boolean {
+  return leftShape.axes.every((leftAxis) =>
+    rightShape.axes.every((rightAxis) => {
+      const translatedLeft = translateAxis(leftAxis, leftCenter);
+      const translatedRight = translateAxis(rightAxis, rightCenter);
+      return (
+        distanceBetweenSegments(translatedLeft, translatedRight) >
+        translatedLeft.width + translatedRight.width + waterGap
+      );
+    }),
+  );
+}
+
+function translateAxis(axis: ContinentAxis, center: MapPosition): ContinentAxis {
+  return {
+    start: translatePosition(axis.start, center),
+    end: translatePosition(axis.end, center),
+    width: axis.width,
+  };
+}
+
+function distanceBetweenSegments(left: ContinentAxis, right: ContinentAxis): number {
+  if (segmentsIntersect(left.start, left.end, right.start, right.end)) {
+    return 0;
+  }
+
+  return minimum([
+    distanceToSegment(left.start, right.start, right.end),
+    distanceToSegment(left.end, right.start, right.end),
+    distanceToSegment(right.start, left.start, left.end),
+    distanceToSegment(right.end, left.start, left.end),
+  ]);
+}
+
+function segmentsIntersect(
+  firstStart: MapPosition,
+  firstEnd: MapPosition,
+  secondStart: MapPosition,
+  secondEnd: MapPosition,
+): boolean {
+  const first = crossProduct(firstStart, firstEnd, secondStart);
+  const second = crossProduct(firstStart, firstEnd, secondEnd);
+  const third = crossProduct(secondStart, secondEnd, firstStart);
+  const fourth = crossProduct(secondStart, secondEnd, firstEnd);
+
+  return (
+    Math.max(Math.min(first, second), Math.min(third, fourth)) <= 0 &&
+    Math.min(Math.max(first, second), Math.max(third, fourth)) >= 0
+  );
+}
+
+function crossProduct(start: MapPosition, end: MapPosition, point: MapPosition): number {
+  return (end.x - start.x) * (point.y - start.y) - (end.y - start.y) * (point.x - start.x);
 }
 
 function makeLand(cell: MutableHex, elevation: number): void {
@@ -839,7 +963,7 @@ function findMountainRangeStart(
     Array.from({ length: grid.size }, (_, index) => index).filter(
       (index) =>
         requiredNumber(edgeDistance, index) >
-          configuration.outerOcean.hardWidth + configuration.outerOcean.coastFalloffWidth + 3 &&
+          configuration.outerOcean.hardWidth + configuration.continentalPlacement.edgeClearance + 3 &&
         requiredCell(cells, index).isLand &&
         grid.indexesWithinRadius(index, 2).every((neighbor) => requiredCell(cells, neighbor).isLand),
     ),
@@ -1226,6 +1350,13 @@ function offsetPosition(position: MapPosition, angle: number, distance: number):
   return {
     x: position.x + Math.cos(angle) * distance,
     y: position.y + Math.sin(angle) * distance,
+  };
+}
+
+function translatePosition(position: MapPosition, translation: MapPosition): MapPosition {
+  return {
+    x: position.x + translation.x,
+    y: position.y + translation.y,
   };
 }
 

@@ -16,19 +16,21 @@
       "continentCoverage": 0.38,
       "continentMinimumSeparation": 24,
       "outerOcean": {
-        "hardWidth": 18,
-        "coastFalloffWidth": 30
+        "hardWidth": 3
+      },
+      "continentalPlacement": {
+        "edgeClearance": 4
       },
       "continentalAxes": {
-        "minimumCount": 2,
+        "minimumCount": 3,
         "maximumCount": 4,
-        "primaryLengthMinimumFactor": 0.95,
-        "primaryLengthMaximumFactor": 1.35,
+        "primaryLengthMinimumFactor": 0.55,
+        "primaryLengthMaximumFactor": 0.85,
         "branchLengthMinimumFactor": 0.45,
-        "branchLengthMaximumFactor": 0.95,
-        "widthMinimumFactor": 0.65,
-        "widthMaximumFactor": 0.85,
-        "landThreshold": 0.025,
+        "branchLengthMaximumFactor": 0.7,
+        "widthMinimumFactor": 0.55,
+        "widthMaximumFactor": 0.65,
+        "landThreshold": 0.01,
         "separationWidth": 7,
         "domainWarpScale": 64,
         "domainWarpAmount": 9

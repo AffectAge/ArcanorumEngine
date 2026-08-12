@@ -15,8 +15,12 @@ export const WorldGenerationSchema = z
     continentMinimumSeparation: z.number().int().min(4).max(160),
     outerOcean: z
       .object({
-        hardWidth: z.number().int().min(1).max(160),
-        coastFalloffWidth: z.number().int().min(1).max(160),
+        hardWidth: z.number().int().min(1).max(64),
+      })
+      .strict(),
+    continentalPlacement: z
+      .object({
+        edgeClearance: z.number().int().min(0).max(96),
       })
       .strict(),
     continentalAxes: z
@@ -97,13 +101,13 @@ export const WorldGenerationSchema = z
     }
 
     if (
-      value.outerOcean.hardWidth + value.outerOcean.coastFalloffWidth >=
+      value.outerOcean.hardWidth + value.continentalPlacement.edgeClearance >=
       Math.min(value.width, value.height) / 2
     ) {
       context.addIssue({
         code: z.ZodIssueCode.custom,
-        message: 'outerOcean hardWidth and coastFalloffWidth leave no usable interior.',
-        path: ['outerOcean'],
+        message: 'outerOcean hardWidth and continentalPlacement edgeClearance leave no usable interior.',
+        path: ['continentalPlacement'],
       });
     }
 

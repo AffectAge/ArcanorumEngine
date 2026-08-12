@@ -3,6 +3,7 @@ dist/
 data/
 /world/
 /.removed-world-and-biome-*/
+/.removed-world-before-placement-*/
 .env
 /.dev-runtime.json
 /.dev-server-configuration.json

@@ -4,33 +4,34 @@ import { generateWorld } from './generator.js';
 import { loadTerrainCatalog } from './terrain-catalog.js';
 
 const GENERATION_CONFIG: WorldGenerationConfig = {
-  width: 48,
-  height: 36,
+  width: 384,
+  height: 256,
   continentCount: 2,
   continentCoverage: 0.36,
   continentMinimumSeparation: 12,
-  outerOcean: { hardWidth: 3, coastFalloffWidth: 4 },
+  outerOcean: { hardWidth: 3 },
+  continentalPlacement: { edgeClearance: 4 },
   continentalAxes: {
-    minimumCount: 2,
-    maximumCount: 3,
-    primaryLengthMinimumFactor: 0.85,
-    primaryLengthMaximumFactor: 1.1,
-    branchLengthMinimumFactor: 0.4,
-    branchLengthMaximumFactor: 0.65,
-    widthMinimumFactor: 0.62,
-    widthMaximumFactor: 0.78,
-    landThreshold: 0.1,
-    separationWidth: 2,
-    domainWarpScale: 18,
-    domainWarpAmount: 2.5,
+    minimumCount: 3,
+    maximumCount: 4,
+    primaryLengthMinimumFactor: 0.55,
+    primaryLengthMaximumFactor: 0.85,
+    branchLengthMinimumFactor: 0.45,
+    branchLengthMaximumFactor: 0.7,
+    widthMinimumFactor: 0.55,
+    widthMaximumFactor: 0.65,
+    landThreshold: 0.01,
+    separationWidth: 7,
+    domainWarpScale: 64,
+    domainWarpAmount: 9,
   },
   coastNoise: {
-    macroScale: 24,
-    macroAmplitude: 0.18,
-    bayScale: 9,
-    bayAmplitude: 0.12,
-    detailScale: 3,
-    detailAmplitude: 0.03,
+    macroScale: 96,
+    macroAmplitude: 0.22,
+    bayScale: 28,
+    bayAmplitude: 0.16,
+    detailScale: 8,
+    detailAmplitude: 0.045,
   },
   topology: { smoothingPasses: 1, minimumIslandHexes: 6 },
   seaLevel: 520,
@@ -73,14 +74,17 @@ describe('world generation', () => {
     expect(first.rivers.length).toBeGreaterThan(0);
     expect(first.hexes.every((hex) => hex.temperature >= 0 && hex.temperature <= 1000)).toBe(true);
     expect(first.hexes.every((hex) => hex.rainfall >= 0 && hex.rainfall <= 1000)).toBe(true);
-    expect(first.hexes.filter((hex) => hex.q === 0 || hex.r === 0 || hex.q === 47 || hex.r === 35)).toEqual(
+    const boundaryHexes = first.hexes.filter(
+      (hex) =>
+        hex.q === 0 ||
+        hex.r === 0 ||
+        hex.q === GENERATION_CONFIG.width - 1 ||
+        hex.r === GENERATION_CONFIG.height - 1,
+    );
+    expect(boundaryHexes).toEqual(
       expect.arrayContaining([expect.objectContaining({ waterBodyId: 'water.ocean.1' })]),
     );
-    expect(
-      first.hexes
-        .filter((hex) => hex.q === 0 || hex.r === 0 || hex.q === 47 || hex.r === 35)
-        .every((hex) => hex.waterBodyId === 'water.ocean.1'),
-    ).toBe(true);
+    expect(boundaryHexes.every((hex) => hex.waterBodyId === 'water.ocean.1')).toBe(true);
     expect(first.diagnostics.boundaryLandHexCount).toBe(0);
     expect(first.diagnostics.connectedSeaCount).toBe(1);
     expect(first.diagnostics.stages.map((stage) => stage.id)).toEqual([
@@ -97,7 +101,7 @@ describe('world generation', () => {
     expect(new Set(first.hexes.map((hex) => hex.terrainId))).toEqual(
       new Set(['terrain.ocean', 'terrain.coastal_water', 'terrain.sea', 'terrain.lake', 'terrain.land']),
     );
-  });
+  }, 30_000);
 });
 
 function expectRiversReachWater(world: ReturnType<typeof generateWorld>): void {
