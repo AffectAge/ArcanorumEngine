@@ -38,6 +38,9 @@ export class WorldScene extends Phaser.Scene {
       frameWidth: riverAtlas.frameWidth,
       frameHeight: riverAtlas.frameHeight,
     });
+    for (const asset of this.world.geometry.visuals.assets) {
+      this.load.image(asset.key, asset.url);
+    }
     this.load.on(Phaser.Loader.Events.FILE_LOAD_ERROR, this.onFileLoadError, this);
   }
 

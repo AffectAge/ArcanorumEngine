@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { WorldVisualCatalogSchema } from './world-visual.js';
 
 const StableIdSchema = z.string().regex(/^[a-z][a-z0-9_]*(?:\.[a-z0-9_]+)+$/);
 
@@ -206,6 +207,7 @@ export const WorldGeometrySchema = z
     staggerIndex: z.literal('odd'),
     hexSideLength: z.number().int().positive(),
     terrain: TerrainCatalogSchema,
+    visuals: WorldVisualCatalogSchema,
   })
   .strict();
 
@@ -236,6 +238,8 @@ export const WorldGeometryChunkSchema = z
     width: z.number().int().positive(),
     height: z.number().int().positive(),
     hexes: z.array(WorldHexSchema).min(1),
+    /** One-hex non-rendered halo used only by visual rules that inspect neighbors. */
+    visualNeighbors: z.array(WorldHexSchema),
     rivers: z.array(WorldRiverEdgeSchema),
   })
   .strict()
@@ -246,6 +250,18 @@ export const WorldGeometryChunkSchema = z
         message: 'Hex count does not match chunk dimensions.',
         path: ['hexes'],
       });
+    }
+    const coordinates = new Set<string>();
+    for (const hex of [...chunk.hexes, ...chunk.visualNeighbors]) {
+      const coordinate = `${hex.q}:${hex.r}`;
+      if (coordinates.has(coordinate)) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `Duplicate visual context hex: ${coordinate}.`,
+          path: ['visualNeighbors'],
+        });
+      }
+      coordinates.add(coordinate);
     }
   });
 

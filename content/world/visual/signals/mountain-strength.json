@@ -1,0 +1,12 @@
+{
+  "id": "environment.mountain_strength",
+  "expression": {
+    "type": "remap",
+    "value": {
+      "type": "fact",
+      "fact": "neighbor.ruggedness"
+    },
+    "inputMin": 600,
+    "inputMax": 1000
+  }
+}

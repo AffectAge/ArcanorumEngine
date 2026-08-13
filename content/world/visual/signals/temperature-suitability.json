@@ -1,0 +1,19 @@
+{
+  "id": "environment.temperature_suitability",
+  "expression": {
+    "type": "subtract",
+    "left": {
+      "type": "constant",
+      "value": 1000
+    },
+    "right": {
+      "type": "remap",
+      "value": {
+        "type": "fact",
+        "fact": "hex.temperature"
+      },
+      "inputMin": 700,
+      "inputMax": 1000
+    }
+  }
+}

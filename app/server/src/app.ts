@@ -18,6 +18,7 @@ import { attachGameSocket } from './game/socket-server.js';
 import { prepareWorld, WorldService } from './world/service.js';
 import { initializeWorldDatabase, openWorldDatabase } from './world/database.js';
 import { loadTerrainCatalog } from './world/terrain-catalog.js';
+import { loadVisualCatalog } from './world/visual-catalog.js';
 
 export type CreateAppOptions = {
   readonly config: ServerConfig;
@@ -32,6 +33,7 @@ export async function createApp(options: CreateAppOptions): Promise<FastifyInsta
     bodyLimit: 16 * 1024,
   });
   const terrainCatalog = loadTerrainCatalog();
+  const visualCatalog = loadVisualCatalog();
   const preparedWorld = prepareWorld(options.config, terrainCatalog);
   const accountDatabase = options.accountDatabase ?? openAccountDatabase(options.config.accountsPath);
   if (options.accountDatabase !== undefined) {
@@ -41,7 +43,7 @@ export async function createApp(options: CreateAppOptions): Promise<FastifyInsta
   if (options.worldDatabase !== undefined) {
     initializeWorldDatabase(worldDatabase);
   }
-  const worldService = new WorldService(worldDatabase, preparedWorld, terrainCatalog);
+  const worldService = new WorldService(worldDatabase, preparedWorld, terrainCatalog, visualCatalog);
   worldService.initialize();
   const worldBase = worldService.getBase();
   const gameService = new GameService(worldDatabase, worldBase);

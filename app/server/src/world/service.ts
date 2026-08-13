@@ -16,6 +16,7 @@ import { WorldGenerationSchema, type ServerConfig } from '../config.js';
 import type { SqliteDatabase } from '../database.js';
 import { generateWorld, type GeneratedWorld } from './generation/index.js';
 import type { LoadedTerrainCatalog } from './terrain-catalog.js';
+import type { LoadedVisualCatalog } from './visual-catalog.js';
 
 const WorldManifestSchema = z
   .object({
@@ -104,6 +105,7 @@ export class WorldService {
     private readonly database: SqliteDatabase,
     private readonly preparedWorld: PreparedWorld,
     private readonly terrainCatalog: LoadedTerrainCatalog,
+    private readonly visualCatalog: LoadedVisualCatalog,
   ) {}
 
   initialize(): void {
@@ -152,6 +154,7 @@ export class WorldService {
         staggerIndex: 'odd',
         hexSideLength: 48,
         terrain: this.terrainCatalog.catalog,
+        visuals: this.visualCatalog.catalog,
       },
       landmasses: this.database
         .prepare('SELECT id, kind, hex_count AS hexCount FROM world_landmasses ORDER BY id ASC')
@@ -199,6 +202,19 @@ export class WorldService {
         )
         .all(originQ, endQ, originR, endR)
         .map(toWorldHex),
+      visualNeighbors: this.database
+        .prepare(
+          `SELECT q, r, terrain_id AS terrainId, elevation,
+                  temperature, rainfall,
+                  flow_accumulation AS flowAccumulation,
+                  landmass_id AS landmassId, water_body_id AS waterBodyId
+           FROM world_hexes
+           WHERE q BETWEEN ? AND ? AND r BETWEEN ? AND ?
+             AND NOT (q BETWEEN ? AND ? AND r BETWEEN ? AND ?)
+           ORDER BY r ASC, q ASC`,
+        )
+        .all(originQ - 1, endQ + 1, originR - 1, endR + 1, originQ, endQ, originR, endR)
+        .map(toWorldHex),
       rivers: this.database
         .prepare(
           `SELECT from_q AS fromQ, from_r AS fromR, to_q AS toQ, to_r AS toR, flow
@@ -224,6 +240,7 @@ export class WorldService {
           seed: this.preparedWorld.snapshot.seed,
           generation: this.preparedWorld.snapshot.generation,
           terrainCatalogFingerprint: this.preparedWorld.snapshot.terrainCatalogFingerprint,
+          visualCatalogFingerprint: this.visualCatalog.fingerprint,
         }),
       )
       .digest('hex');

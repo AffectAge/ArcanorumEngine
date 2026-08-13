@@ -1,0 +1,20 @@
+{
+  "layers": ["layers/relief.json", "layers/wetland.json", "layers/vegetation.json"],
+  "assets": ["asset-sets/mountain.json", "asset-sets/forest.json", "asset-sets/swamp.json"],
+  "signals": [
+    "signals/mountain-strength.json",
+    "signals/coldness.json",
+    "signals/snow-coverage.json",
+    "signals/wetness.json",
+    "signals/lowlandness.json",
+    "signals/temperature-suitability.json",
+    "signals/vegetation-potential.json",
+    "signals/swamp-potential.json"
+  ],
+  "features": [
+    "features/relief/mountain.json",
+    "features/relief/snow-mountain.json",
+    "features/hydrology/swamp.json",
+    "features/vegetation/forest.json"
+  ]
+}

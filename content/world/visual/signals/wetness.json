@@ -1,0 +1,12 @@
+{
+  "id": "environment.wetness",
+  "expression": {
+    "type": "remap",
+    "value": {
+      "type": "fact",
+      "fact": "hex.rainfall"
+    },
+    "inputMin": 50,
+    "inputMax": 400
+  }
+}

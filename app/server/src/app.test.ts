@@ -136,6 +136,12 @@ describe('authentication API', () => {
       geometry: {
         width: 384,
         height: 256,
+        visuals: {
+          features: expect.arrayContaining([
+            expect.objectContaining({ id: 'feature.mountain' }),
+            expect.objectContaining({ id: 'feature.forest' }),
+          ]),
+        },
       },
     });
     expect(worldResponse.json().geometry.hexes).toBeUndefined();
@@ -147,6 +153,7 @@ describe('authentication API', () => {
     });
     expect(chunkResponse.statusCode).toBe(200);
     expect(chunkResponse.json().chunk.hexes).toHaveLength(32 * 32);
+    expect(chunkResponse.json().chunk.visualNeighbors.length).toBeGreaterThan(0);
 
     const snapshotResponse = await app.inject({
       method: 'GET',

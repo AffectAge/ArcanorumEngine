@@ -1,0 +1,29 @@
+{
+  "id": "feature.swamp",
+  "layerId": "layer.wetland",
+  "priority": 10,
+  "when": {
+    "all": [
+      {
+        "fact": "hex.terrain_role",
+        "operator": "eq",
+        "value": "land"
+      },
+      {
+        "fact": "environment.swamp_potential",
+        "operator": "gte",
+        "value": 350
+      }
+    ]
+  },
+  "intensity": {
+    "type": "fact",
+    "fact": "environment.swamp_potential"
+  },
+  "renderer": {
+    "type": "sprite",
+    "assetId": "asset.swamp",
+    "scalePermille": 760,
+    "offsetY": 10
+  }
+}

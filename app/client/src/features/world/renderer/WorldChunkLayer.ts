@@ -1,10 +1,12 @@
 import Phaser from 'phaser';
 import type { WorldBaseResponse, WorldGeometryChunk, WorldHex } from '@arcanorum/shared';
 import { getWorldChunk } from '../../../api/world-api.js';
+import { createWorldVisualChunkLayers } from './WorldVisualChunkLayer.js';
 
 type RenderedChunk = {
   readonly terrain: Phaser.Tilemaps.TilemapLayer;
   readonly rivers: Phaser.Tilemaps.TilemapLayer;
+  readonly visuals: readonly Phaser.GameObjects.SpriteGPULayer[];
   readonly hexes: ReadonlyMap<string, WorldHex>;
 };
 
@@ -35,6 +37,7 @@ export class WorldChunkLayer {
       }
       rendered.terrain.destroy(true);
       rendered.rivers.destroy(true);
+      destroyVisualLayers(rendered.visuals);
       this.renderedChunks.delete(key);
     }
 
@@ -70,6 +73,7 @@ export class WorldChunkLayer {
     for (const rendered of this.renderedChunks.values()) {
       rendered.terrain.destroy(true);
       rendered.rivers.destroy(true);
+      destroyVisualLayers(rendered.visuals);
     }
     this.renderedChunks.clear();
     this.loadingChunks.clear();
@@ -107,6 +111,7 @@ export class WorldChunkLayer {
     const map = createTilemap(this.scene, this.world, chunk);
     const terrain = requiredLayer(map, 'terrain', 'world-terrain');
     const rivers = requiredLayer(map, 'rivers', 'world-river');
+    const visuals = createWorldVisualChunkLayers(this.scene, this.world, chunk);
     const { atlas } = this.world.geometry.terrain;
     const x = chunk.originQ * ((atlas.frameWidth + this.world.geometry.hexSideLength) / 2);
     const y = chunk.originR * atlas.frameHeight + (chunk.originQ % 2) * (atlas.frameHeight / 2);
@@ -115,9 +120,16 @@ export class WorldChunkLayer {
     this.renderedChunks.set(`${chunk.chunkQ}:${chunk.chunkR}`, {
       terrain,
       rivers,
+      visuals,
       hexes: new Map(chunk.hexes.map((hex) => [`${hex.q}:${hex.r}`, hex])),
     });
     this.onChunkRendered();
+  }
+}
+
+function destroyVisualLayers(layers: readonly Phaser.GameObjects.SpriteGPULayer[]): void {
+  for (const layer of layers) {
+    layer.destroy();
   }
 }
 
