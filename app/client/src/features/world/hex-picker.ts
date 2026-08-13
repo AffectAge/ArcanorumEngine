@@ -1,21 +1,21 @@
-import type { WorldHex, WorldMapResponse } from '@arcanorum/shared';
+import type { WorldGeometry } from '@arcanorum/shared';
 
 /**
  * Resolves a rendered flat-top, odd-column hex from world-space pixels.
  * This matches the Tiled placement used by the Phaser tile layer.
  */
-export function findHexAtWorldPosition(
-  world: WorldMapResponse,
+export function findHexCoordinateAtWorldPosition(
+  world: WorldGeometry,
   worldX: number,
   worldY: number,
-): WorldHex | undefined {
-  const { frameHeight, frameWidth } = world.map.terrain.atlas;
-  const horizontalStep = (frameWidth + world.map.hexSideLength) / 2;
+): { readonly q: number; readonly r: number } | undefined {
+  const { frameHeight, frameWidth } = world.terrain.atlas;
+  const horizontalStep = (frameWidth + world.hexSideLength) / 2;
   const approximateColumn = Math.round((worldX - frameWidth / 2) / horizontalStep);
 
   for (let columnOffset = -2; columnOffset <= 2; columnOffset += 1) {
     const q = approximateColumn + columnOffset;
-    if (q < 0 || q >= world.map.width) {
+    if (q < 0 || q >= world.width) {
       continue;
     }
 
@@ -24,25 +24,19 @@ export function findHexAtWorldPosition(
 
     for (let rowOffset = -2; rowOffset <= 2; rowOffset += 1) {
       const r = approximateRow + rowOffset;
-      if (r < 0 || r >= world.map.height) {
+      if (r < 0 || r >= world.height) {
         continue;
       }
 
       const centerX = q * horizontalStep + frameWidth / 2;
       const centerY = r * frameHeight + centerYForFirstRow;
       if (
-        !isInsideFlatTopHex(
-          worldX - centerX,
-          worldY - centerY,
-          frameWidth,
-          frameHeight,
-          world.map.hexSideLength,
-        )
+        !isInsideFlatTopHex(worldX - centerX, worldY - centerY, frameWidth, frameHeight, world.hexSideLength)
       ) {
         continue;
       }
 
-      return world.map.hexes[r * world.map.width + q];
+      return { q, r };
     }
   }
 

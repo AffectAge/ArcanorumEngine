@@ -4,7 +4,7 @@ import Database from 'better-sqlite3';
 
 export type SqliteDatabase = Database.Database;
 
-const SCHEMA_VERSION = 3;
+const SCHEMA_VERSION = 5;
 
 const CREATE_SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS schema_metadata (
@@ -96,6 +96,39 @@ CREATE TABLE IF NOT EXISTS world_river_edges (
 );
 `;
 
+const GAME_STATE_MIGRATION_SQL = `
+CREATE TABLE IF NOT EXISTS game_state (
+  singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
+  turn INTEGER NOT NULL CHECK (turn > 0),
+  event_sequence INTEGER NOT NULL CHECK (event_sequence >= 0)
+);
+
+CREATE TABLE IF NOT EXISTS game_events (
+  sequence INTEGER PRIMARY KEY,
+  turn INTEGER NOT NULL CHECK (turn > 0),
+  event_type TEXT NOT NULL,
+  payload_json TEXT NOT NULL
+);
+`;
+
+const TURN_COMMANDS_MIGRATION_SQL = `
+CREATE TABLE IF NOT EXISTS game_turn_readiness (
+  turn INTEGER NOT NULL CHECK (turn > 0),
+  player_id INTEGER NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+  client_sequence INTEGER NOT NULL CHECK (client_sequence >= 0),
+  PRIMARY KEY (turn, player_id)
+);
+
+CREATE TABLE IF NOT EXISTS game_commands (
+  turn INTEGER NOT NULL CHECK (turn > 0),
+  player_id INTEGER NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+  client_sequence INTEGER NOT NULL CHECK (client_sequence >= 0),
+  command_type TEXT NOT NULL,
+  payload_json TEXT NOT NULL,
+  PRIMARY KEY (turn, player_id, client_sequence)
+);
+`;
+
 export function openDatabase(databasePath: string): SqliteDatabase {
   if (databasePath !== ':memory:') {
     mkdirSync(dirname(databasePath), { recursive: true });
@@ -116,11 +149,32 @@ function initializeSchema(database: SqliteDatabase): void {
   }>;
 
   if (versions.length === 0) {
+    database.exec(GAME_STATE_MIGRATION_SQL);
+    database.exec(TURN_COMMANDS_MIGRATION_SQL);
     database.prepare('INSERT INTO schema_metadata (version) VALUES (?)').run(SCHEMA_VERSION);
     return;
   }
 
-  if (versions.length !== 1 || versions[0]?.version !== SCHEMA_VERSION) {
+  const version = versions[0]?.version;
+  if (versions.length !== 1 || version === undefined) {
     throw new Error(`Unsupported SQLite schema version. Expected ${SCHEMA_VERSION}.`);
   }
+
+  if (version < 3 || version > SCHEMA_VERSION) {
+    throw new Error(`Unsupported SQLite schema version. Expected ${SCHEMA_VERSION}.`);
+  }
+
+  let currentVersion = version;
+  const migrate = database.transaction(() => {
+    if (currentVersion === 3) {
+      database.exec(GAME_STATE_MIGRATION_SQL);
+      currentVersion = 4;
+    }
+    if (currentVersion === 4) {
+      database.exec(TURN_COMMANDS_MIGRATION_SQL);
+      currentVersion = 5;
+    }
+    database.prepare('UPDATE schema_metadata SET version = ?').run(currentVersion);
+  });
+  migrate();
 }

@@ -11,6 +11,9 @@ import { openDatabase, type SqliteDatabase } from './database.js';
 import { AuthHttpError } from './errors.js';
 import { AuthRateLimiter } from './rate-limiter.js';
 import { clearSessionCookie, getSessionCookieName, setSessionCookie } from './session-service.js';
+import { GameService } from './game/game-service.js';
+import { GameCommandService } from './game/command-service.js';
+import { attachGameSocket } from './game/socket-server.js';
 import { prepareWorld, WorldService } from './world/service.js';
 import { loadTerrainCatalog } from './world/terrain-catalog.js';
 
@@ -30,6 +33,10 @@ export async function createApp(options: CreateAppOptions): Promise<FastifyInsta
   const database = options.database ?? openDatabase(preparedWorld.databasePath);
   const worldService = new WorldService(database, preparedWorld, terrainCatalog);
   worldService.initialize();
+  const worldBase = worldService.getBase();
+  const gameService = new GameService(database, worldBase);
+  gameService.initialize();
+  const gameCommandService = new GameCommandService(gameService);
   const now = options.now ?? currentEpochSeconds;
   const repository = new AuthRepository(database);
   const rateLimiter = new AuthRateLimiter(database, options.config.rateLimitHmacSecret);
@@ -74,9 +81,36 @@ export async function createApp(options: CreateAppOptions): Promise<FastifyInsta
     return reply.send(toAuthSuccessResponse(session.profile));
   });
 
-  app.get('/api/world/map', async (request, reply) => {
+  app.get('/api/world/base', async (request, reply) => {
     authService.getActiveSession(request.cookies[getSessionCookieName(options.config)], now());
-    return reply.send(worldService.getMap());
+    return reply.send(worldBase);
+  });
+
+  app.get('/api/world/chunks/:chunkQ/:chunkR', async (request, reply) => {
+    authService.getActiveSession(request.cookies[getSessionCookieName(options.config)], now());
+    const { chunkQ, chunkR } = request.params as { readonly chunkQ: string; readonly chunkR: string };
+    const parsedChunkQ = Number(chunkQ);
+    const parsedChunkR = Number(chunkR);
+    if (!Number.isInteger(parsedChunkQ) || !Number.isInteger(parsedChunkR)) {
+      return reply.status(400).send({ error: { code: 'VALIDATION_ERROR' } });
+    }
+    return reply.send(worldService.getChunk(parsedChunkQ, parsedChunkR));
+  });
+
+  app.get('/api/game/snapshot', async (request, reply) => {
+    const session = authService.getActiveSession(
+      request.cookies[getSessionCookieName(options.config)],
+      now(),
+    );
+    return reply.send(gameService.getSnapshot(session.profile));
+  });
+
+  app.post('/api/game/commands', async (request, reply) => {
+    const session = authService.getActiveSession(
+      request.cookies[getSessionCookieName(options.config)],
+      now(),
+    );
+    return reply.send(gameCommandService.execute(session.playerId, request.body));
   });
 
   app.post('/api/auth/logout', async (request, reply) => {
@@ -116,6 +150,8 @@ export async function createApp(options: CreateAppOptions): Promise<FastifyInsta
     app.log.error({ err: error }, 'Unhandled server error');
     return reply.status(500).send({ error: { code: 'INTERNAL_ERROR' } });
   });
+
+  attachGameSocket(app, options.config, authService, gameService, now);
 
   return app;
 }

@@ -14,6 +14,7 @@ export const AUTH_ERROR_CODES = [
   'UNAUTHENTICATED',
   'FORBIDDEN',
   'NOT_FOUND',
+  'COMMAND_REJECTED',
   'INTERNAL_ERROR',
 ] as const;
 

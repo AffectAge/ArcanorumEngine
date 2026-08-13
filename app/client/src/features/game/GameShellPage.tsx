@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import type { WorldHex, WorldMapResponse } from '@arcanorum/shared';
-import { getWorldMap } from '../../api/world-api.js';
+import type { WorldBaseResponse, WorldHex } from '@arcanorum/shared';
+import { connectGameEventStream } from '../../api/game-events.js';
+import { getGameSnapshot, getWorldBase } from '../../api/world-api.js';
 import { useAuthStore } from '../../state/auth-store.js';
+import { useGameStore } from '../../state/game-store.js';
 import { Button } from '../../ui/Button.js';
 import { HexTooltip } from '../world/HexTooltip.js';
 import { WorldRenderer } from '../world/WorldRenderer.js';
@@ -14,18 +16,30 @@ export function GameShellPage() {
   const player = useAuthStore((state) => state.player);
   const logout = useAuthStore((state) => state.logout);
   const logoutAll = useAuthStore((state) => state.logoutAll);
-  const [world, setWorld] = useState<WorldMapResponse | undefined>();
+  const setGameSnapshot = useGameStore((state) => state.setSnapshot);
+  const applyGameEvents = useGameStore((state) => state.applyEvents);
+  const clearGameState = useGameStore((state) => state.clear);
+  const [world, setWorld] = useState<WorldBaseResponse | undefined>();
   const [worldError, setWorldError] = useState<string | undefined>();
   const [selectedHex, setSelectedHex] = useState<WorldHex | undefined>();
+
+  const resyncGameSnapshot = useCallback((): void => {
+    void getGameSnapshot()
+      .then(setGameSnapshot)
+      .catch((error: unknown) => {
+        setWorldError(error instanceof Error ? error.message : String(error));
+      });
+  }, [setGameSnapshot]);
 
   useEffect(() => {
     let active = true;
 
-    void getWorldMap()
-      .then((loadedWorld) => {
+    void Promise.all([getWorldBase(), getGameSnapshot()])
+      .then(([loadedWorld, snapshot]) => {
         if (active) {
           setWorld(loadedWorld);
           setSelectedHex(undefined);
+          setGameSnapshot(snapshot);
         }
       })
       .catch((error: unknown) => {
@@ -39,17 +53,33 @@ export function GameShellPage() {
     };
   }, []);
 
+  useEffect(
+    () =>
+      connectGameEventStream({
+        onSnapshot: setGameSnapshot,
+        onEvents: (events) => {
+          if (!applyGameEvents(events)) {
+            resyncGameSnapshot();
+          }
+        },
+        onError: () => undefined,
+      }),
+    [applyGameEvents, resyncGameSnapshot, setGameSnapshot],
+  );
+
   if (player === undefined) {
     return null;
   }
 
   async function leaveCurrentSession(): Promise<void> {
     await logout();
+    clearGameState();
     await navigate('/login', { replace: true });
   }
 
   async function leaveAllSessions(): Promise<void> {
     await logoutAll();
+    clearGameState();
     await navigate('/login', { replace: true });
   }
 

@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
+import type { AddressInfo } from 'node:net';
 import type { FastifyInstance } from 'fastify';
+import { WebSocket } from 'ws';
 import { createApp } from './app.js';
 import type { ServerConfig } from './config.js';
 
@@ -106,9 +108,9 @@ describe('authentication API', () => {
     expect(response.headers['set-cookie']).not.toContain('Max-Age');
   });
 
-  it('serves the persisted generated world only to an authenticated player', async () => {
+  it('serves world geometry as authenticated chunks and keeps mutable state separate', async () => {
     app = await createApp({ config: TEST_CONFIG });
-    const unauthenticated = await app.inject({ method: 'GET', url: '/api/world/map' });
+    const unauthenticated = await app.inject({ method: 'GET', url: '/api/world/base' });
     expect(unauthenticated.statusCode).toBe(401);
 
     const registrationResponse = await app.inject({
@@ -119,7 +121,7 @@ describe('authentication API', () => {
     });
     const worldResponse = await app.inject({
       method: 'GET',
-      url: '/api/world/map',
+      url: '/api/world/base',
       headers: { cookie: cookieHeader(registrationResponse.headers['set-cookie']) },
     });
 
@@ -127,15 +129,137 @@ describe('authentication API', () => {
     expect(worldResponse.json()).toMatchObject({
       worldName: 'Test world',
       seed: 'test-seed',
-      map: {
+      geometry: {
         width: 384,
         height: 256,
-        hexes: expect.any(Array),
-        rivers: expect.any(Array),
       },
     });
-    expect(worldResponse.json().map.hexes).toHaveLength(384 * 256);
-    expect(worldResponse.json().map.rivers.length).toBeGreaterThan(0);
+    expect(worldResponse.json().geometry.hexes).toBeUndefined();
+
+    const chunkResponse = await app.inject({
+      method: 'GET',
+      url: '/api/world/chunks/0/0',
+      headers: { cookie: cookieHeader(registrationResponse.headers['set-cookie']) },
+    });
+    expect(chunkResponse.statusCode).toBe(200);
+    expect(chunkResponse.json().chunk.hexes).toHaveLength(32 * 32);
+
+    const snapshotResponse = await app.inject({
+      method: 'GET',
+      url: '/api/game/snapshot',
+      headers: { cookie: cookieHeader(registrationResponse.headers['set-cookie']) },
+    });
+    expect(snapshotResponse.statusCode).toBe(200);
+    expect(snapshotResponse.json()).toMatchObject({ turn: 1, eventSequence: 0 });
+  });
+
+  it('advances the empty WEGO turn only through a validated server command and persists its event delta', async () => {
+    app = await createApp({ config: TEST_CONFIG });
+    const registrationResponse = await app.inject({
+      method: 'POST',
+      url: '/api/auth/register',
+      headers: originHeaders,
+      payload: registration,
+    });
+    const cookie = cookieHeader(registrationResponse.headers['set-cookie']);
+    const commandResponse = await app.inject({
+      method: 'POST',
+      url: '/api/game/commands',
+      headers: { ...originHeaders, cookie },
+      payload: { type: 'END_TURN', turn: 1, clientSequence: 0 },
+    });
+
+    expect(commandResponse.statusCode).toBe(200);
+    expect(commandResponse.json()).toEqual({
+      accepted: true,
+      turn: 2,
+      eventSequence: 1,
+      awaitingPlayers: 0,
+    });
+
+    const snapshotResponse = await app.inject({
+      method: 'GET',
+      url: '/api/game/snapshot',
+      headers: { cookie },
+    });
+    expect(snapshotResponse.json()).toMatchObject({ turn: 2, eventSequence: 1 });
+  });
+
+  it('resolves a WEGO turn only after every registered player submitted an end-turn command', async () => {
+    app = await createApp({ config: TEST_CONFIG });
+    const firstRegistration = await app.inject({
+      method: 'POST',
+      url: '/api/auth/register',
+      headers: originHeaders,
+      payload: registration,
+    });
+    const secondRegistration = await app.inject({
+      method: 'POST',
+      url: '/api/auth/register',
+      headers: originHeaders,
+      payload: {
+        ...registration,
+        login: 'Player_Two',
+        countryName: 'Вторая Республика',
+      },
+    });
+    const firstCookie = cookieHeader(firstRegistration.headers['set-cookie']);
+    const secondCookie = cookieHeader(secondRegistration.headers['set-cookie']);
+
+    const firstCommand = await app.inject({
+      method: 'POST',
+      url: '/api/game/commands',
+      headers: { ...originHeaders, cookie: firstCookie },
+      payload: { type: 'END_TURN', turn: 1, clientSequence: 0 },
+    });
+    expect(firstCommand.statusCode).toBe(200);
+    expect(firstCommand.json()).toEqual({
+      accepted: true,
+      turn: 1,
+      eventSequence: 0,
+      awaitingPlayers: 1,
+    });
+
+    const secondCommand = await app.inject({
+      method: 'POST',
+      url: '/api/game/commands',
+      headers: { ...originHeaders, cookie: secondCookie },
+      payload: { type: 'END_TURN', turn: 1, clientSequence: 0 },
+    });
+    expect(secondCommand.statusCode).toBe(200);
+    expect(secondCommand.json()).toEqual({
+      accepted: true,
+      turn: 2,
+      eventSequence: 1,
+      awaitingPlayers: 0,
+    });
+  });
+
+  it('sends an authenticated WebSocket client an authoritative game snapshot', async () => {
+    app = await createApp({ config: TEST_CONFIG });
+    const registrationResponse = await app.inject({
+      method: 'POST',
+      url: '/api/auth/register',
+      headers: originHeaders,
+      payload: registration,
+    });
+    await app.listen({ port: 0, host: '127.0.0.1' });
+    const address = app.server.address();
+    if (address === null || typeof address === 'string') {
+      throw new Error('Test server did not expose a TCP address.');
+    }
+
+    const message = await readSocketMessage(
+      new WebSocket(`ws://127.0.0.1:${(address as AddressInfo).port}/api/game/events`, {
+        origin: TEST_CONFIG.allowedOrigins[0],
+        headers: { cookie: cookieHeader(registrationResponse.headers['set-cookie']) },
+      }),
+    );
+
+    expect(message).toMatchObject({
+      type: 'game.snapshot',
+      snapshot: { worldName: 'Test world', turn: 1, eventSequence: 0 },
+    });
   });
 
   it('rejects duplicate country names using their normalized identity', async () => {
@@ -322,4 +446,26 @@ function cookieHeader(setCookie: string | string[] | undefined): string {
     throw new Error('Expected a session cookie.');
   }
   return value.split(';')[0] ?? value;
+}
+
+function readSocketMessage(socket: WebSocket): Promise<unknown> {
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      socket.terminate();
+      reject(new Error('Timed out waiting for a game socket message.'));
+    }, 3_000);
+    socket.once('message', (data) => {
+      clearTimeout(timeout);
+      socket.close();
+      try {
+        resolve(JSON.parse(String(data)));
+      } catch (error) {
+        reject(error);
+      }
+    });
+    socket.once('error', (error) => {
+      clearTimeout(timeout);
+      reject(error);
+    });
+  });
 }
