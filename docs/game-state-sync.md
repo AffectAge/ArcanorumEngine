@@ -2,6 +2,12 @@
 
 Static geography and mutable game state have separate ownership and transport paths.
 
+## Account and world storage
+
+The account database path is configured independently of `world.path`. It owns players, credentials, sessions, country-name profiles, and future account-wide rewards or currency. `world/world.sqlite` owns only one game's geography, participants, simulation state, commands, and events. Deleting `world/` therefore starts a new game without deleting player profiles.
+
+Account IDs are stable global references. A world stores only those IDs plus world-owned country data; SQLite foreign keys never cross the two databases. Existing combined account/world databases are rejected explicitly. They are not migrated or modified automatically.
+
 ## Static world geometry
 
 `WorldService` owns generated geometry. `GET /api/world/base` returns the small world description, terrain catalog, stable geometry revision, diagnostics, landmasses, and water bodies. `GET /api/world/chunks/:q/:r` returns only one 32 x 32 geometry chunk (smaller at the map edge) and river edges touching it.
@@ -15,6 +21,7 @@ The renderer requests chunks around the Phaser camera and evicts chunks that lea
 The protocol has three distinct messages:
 
 - `GET /api/game/snapshot` returns a small authenticated snapshot: player profile, world identity, geometry revision, turn, and last event sequence.
+- `POST /api/game/join` explicitly enrolls an authenticated account in the current world. It creates a world-owned country with a snapshot of the account's country name, then returns a game snapshot. Repeating the request is idempotent.
 - `POST /api/game/commands` validates a serializable player command. The currently implemented command is `END_TURN`.
 - `GET /api/game/events` upgrades to WebSocket and emits a snapshot followed by ordered event envelopes.
 
@@ -22,6 +29,6 @@ Event envelopes have a monotonically increasing `firstSequence`. The client appl
 
 ## WEGO boundary
 
-An `END_TURN` command records readiness for the current turn. The server resolves only after every currently registered player has submitted a valid command. Resolution creates the next state and the typed `TURN_ADVANCED` event in one SQLite transaction, then broadcasts that event after commit.
+An `END_TURN` command records readiness for the current turn. The server resolves only after every player enrolled in the current world has submitted a valid command. Registration alone never makes an account part of a world or able to block its WEGO resolution. Resolution creates the next state and the typed `TURN_ADVANCED` event in one SQLite transaction, then broadcasts that event after commit.
 
 Later command kinds must remain schema-validated, associated with a turn and player, sorted deterministically by documented priority and stable IDs, and resolved only by the simulation engine.

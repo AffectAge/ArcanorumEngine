@@ -30,6 +30,10 @@ type ReadinessRow = {
   readonly client_sequence: number;
 };
 
+type WorldPlayerRow = {
+  readonly player_id: number;
+};
+
 type EventSubscriber = (envelope: GameEventEnvelope) => void;
 
 /** Persistence adapter for mutable game state. Static geography remains owned by WorldService. */
@@ -54,6 +58,32 @@ export class GameService {
     return createGameSnapshot(this.readState(), player, this.world);
   }
 
+  /**
+   * Accounts are global. A world membership is created explicitly and records
+   * the profile country name as immutable world state for this game.
+   */
+  joinPlayer(playerId: number, profile: AuthProfile): GameSnapshot {
+    return this.database.transaction(() => {
+      const state = this.readState();
+      const existing = this.database
+        .prepare('SELECT player_id FROM world_players WHERE player_id = ?')
+        .get(playerId) as WorldPlayerRow | undefined;
+      if (existing === undefined) {
+        const countryId = createWorldCountryId(playerId);
+        this.database
+          .prepare(
+            `INSERT INTO world_countries (id, owner_player_id, country_name_snapshot, created_turn)
+             VALUES (?, ?, ?, ?)`,
+          )
+          .run(countryId, playerId, profile.countryName, state.turn);
+        this.database
+          .prepare('INSERT INTO world_players (player_id, country_id, joined_turn) VALUES (?, ?, ?)')
+          .run(playerId, countryId, state.turn);
+      }
+      return createGameSnapshot(state, profile, this.world);
+    })();
+  }
+
   subscribe(listener: EventSubscriber): () => void {
     this.subscribers.add(listener);
     return () => this.subscribers.delete(listener);
@@ -66,6 +96,12 @@ export class GameService {
 
     let emitted: GameEventEnvelope | undefined;
     const result = this.database.transaction(() => {
+      const participant = this.database
+        .prepare('SELECT player_id FROM world_players WHERE player_id = ?')
+        .get(playerId) as WorldPlayerRow | undefined;
+      if (participant === undefined) {
+        throw new AuthHttpError(409, 'COMMAND_REJECTED');
+      }
       const state = this.readState();
       if (command.turn !== state.turn) {
         throw new AuthHttpError(409, 'COMMAND_REJECTED');
@@ -87,7 +123,7 @@ export class GameService {
         throw new AuthHttpError(409, 'COMMAND_REJECTED');
       }
 
-      const playerCount = this.database.prepare('SELECT COUNT(*) AS count FROM players').get() as {
+      const playerCount = this.database.prepare('SELECT COUNT(*) AS count FROM world_players').get() as {
         count: number;
       };
       const readyCount = this.database
@@ -190,6 +226,13 @@ export class GameService {
       events,
     });
   }
+}
+
+function createWorldCountryId(playerId: number): string {
+  if (!Number.isSafeInteger(playerId) || playerId < 1) {
+    throw new Error(`Cannot create a world country for invalid player ID: ${playerId}.`);
+  }
+  return `country.player.${playerId}`;
 }
 
 function parsePersistedEvent(payload: string, sequence: number): GameEvent {

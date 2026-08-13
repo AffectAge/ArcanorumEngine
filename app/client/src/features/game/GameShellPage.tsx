@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import type { WorldBaseResponse, WorldHex } from '@arcanorum/shared';
 import { connectGameEventStream } from '../../api/game-events.js';
-import { getGameSnapshot, getWorldBase } from '../../api/world-api.js';
+import { getGameSnapshot, getWorldBase, joinGame } from '../../api/world-api.js';
 import { useAuthStore } from '../../state/auth-store.js';
 import { useGameStore } from '../../state/game-store.js';
 import { Button } from '../../ui/Button.js';
@@ -22,6 +22,7 @@ export function GameShellPage() {
   const [world, setWorld] = useState<WorldBaseResponse | undefined>();
   const [worldError, setWorldError] = useState<string | undefined>();
   const [selectedHex, setSelectedHex] = useState<WorldHex | undefined>();
+  const [joinedWorld, setJoinedWorld] = useState(false);
 
   const resyncGameSnapshot = useCallback((): void => {
     void getGameSnapshot()
@@ -34,12 +35,13 @@ export function GameShellPage() {
   useEffect(() => {
     let active = true;
 
-    void Promise.all([getWorldBase(), getGameSnapshot()])
+    void Promise.all([getWorldBase(), joinGame()])
       .then(([loadedWorld, snapshot]) => {
         if (active) {
           setWorld(loadedWorld);
           setSelectedHex(undefined);
           setGameSnapshot(snapshot);
+          setJoinedWorld(true);
         }
       })
       .catch((error: unknown) => {
@@ -53,19 +55,21 @@ export function GameShellPage() {
     };
   }, []);
 
-  useEffect(
-    () =>
-      connectGameEventStream({
-        onSnapshot: setGameSnapshot,
-        onEvents: (events) => {
-          if (!applyGameEvents(events)) {
-            resyncGameSnapshot();
-          }
-        },
-        onError: () => undefined,
-      }),
-    [applyGameEvents, resyncGameSnapshot, setGameSnapshot],
-  );
+  useEffect(() => {
+    if (!joinedWorld) {
+      return undefined;
+    }
+
+    return connectGameEventStream({
+      onSnapshot: setGameSnapshot,
+      onEvents: (events) => {
+        if (!applyGameEvents(events)) {
+          resyncGameSnapshot();
+        }
+      },
+      onError: () => undefined,
+    });
+  }, [applyGameEvents, joinedWorld, resyncGameSnapshot, setGameSnapshot]);
 
   if (player === undefined) {
     return null;

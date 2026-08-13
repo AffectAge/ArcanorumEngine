@@ -37,7 +37,15 @@ export async function getWorldChunk(chunkQ: number, chunkR: number): Promise<Wor
 }
 
 export async function getGameSnapshot(): Promise<GameSnapshot> {
-  const response = await fetch('/api/game/snapshot', { credentials: 'include' });
+  return requestGameSnapshot('/api/game/snapshot', { method: 'GET' });
+}
+
+export async function joinGame(): Promise<GameSnapshot> {
+  return requestGameSnapshot('/api/game/join', { method: 'POST' });
+}
+
+async function requestGameSnapshot(path: string, init: RequestInit): Promise<GameSnapshot> {
+  const response = await fetch(path, { ...init, credentials: 'include' });
   if (!response.ok) {
     throw await toApiError(response);
   }

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Project Structure Governance"
+  short_description: "Keeps Arcanorum modules and files organized"
+  default_prompt: "Use $project-structure-governance to place this change in the correct Arcanorum module."

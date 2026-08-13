@@ -1,5 +1,8 @@
 import { afterEach, describe, expect, it } from 'vitest';
+import { mkdtempSync, rmSync } from 'node:fs';
 import type { AddressInfo } from 'node:net';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import type { FastifyInstance } from 'fastify';
 import { WebSocket } from 'ws';
 import { createApp } from './app.js';
@@ -10,6 +13,7 @@ const TEST_CONFIG: ServerConfig = {
   port: 3000,
   bindHost: '127.0.0.1',
   allowedOrigins: ['http://localhost:5173'],
+  accountsPath: ':memory:',
   worldPath: ':memory:',
   worldAutoCreate: true,
   worldName: 'Test world',
@@ -153,7 +157,7 @@ describe('authentication API', () => {
     expect(snapshotResponse.json()).toMatchObject({ turn: 1, eventSequence: 0 });
   });
 
-  it('advances the empty WEGO turn only through a validated server command and persists its event delta', async () => {
+  it('advances only joined world players through a validated command and persists its event delta', async () => {
     app = await createApp({ config: TEST_CONFIG });
     const registrationResponse = await app.inject({
       method: 'POST',
@@ -161,7 +165,19 @@ describe('authentication API', () => {
       headers: originHeaders,
       payload: registration,
     });
+    const unjoinedRegistration = await app.inject({
+      method: 'POST',
+      url: '/api/auth/register',
+      headers: originHeaders,
+      payload: {
+        ...registration,
+        login: 'Player_Not_Joined',
+        countryName: 'Независимая Республика',
+      },
+    });
+    expect(unjoinedRegistration.statusCode).toBe(201);
     const cookie = cookieHeader(registrationResponse.headers['set-cookie']);
+    await joinWorld(app, cookie);
     const commandResponse = await app.inject({
       method: 'POST',
       url: '/api/game/commands',
@@ -205,6 +221,8 @@ describe('authentication API', () => {
     });
     const firstCookie = cookieHeader(firstRegistration.headers['set-cookie']);
     const secondCookie = cookieHeader(secondRegistration.headers['set-cookie']);
+    await joinWorld(app, firstCookie);
+    await joinWorld(app, secondCookie);
 
     const firstCommand = await app.inject({
       method: 'POST',
@@ -438,7 +456,67 @@ describe('authentication API', () => {
     expect(limited.statusCode).toBe(429);
     expect(limited.json()).toEqual({ error: { code: 'TOO_MANY_ATTEMPTS' } });
   });
+
+  it('keeps accounts and country names after the world directory is deleted', async () => {
+    const storageRoot = mkdtempSync(join(tmpdir(), 'arcanorum-account-storage-'));
+    const persistentConfig: ServerConfig = {
+      ...TEST_CONFIG,
+      accountsPath: join(storageRoot, 'server-data', 'accounts.sqlite'),
+      worldPath: join(storageRoot, 'world'),
+    };
+
+    try {
+      app = await createApp({ config: persistentConfig });
+      const registrationResponse = await app.inject({
+        method: 'POST',
+        url: '/api/auth/register',
+        headers: originHeaders,
+        payload: registration,
+      });
+      expect(registrationResponse.statusCode).toBe(201);
+      await app.close();
+      app = undefined;
+
+      rmSync(persistentConfig.worldPath, { force: true, recursive: true });
+
+      app = await createApp({ config: persistentConfig });
+      const loginResponse = await app.inject({
+        method: 'POST',
+        url: '/api/auth/login',
+        headers: originHeaders,
+        payload: { login: registration.login, password: registration.password, rememberMe: false },
+      });
+      expect(loginResponse.statusCode).toBe(200);
+      expect(loginResponse.json()).toEqual({
+        player: { login: registration.login, countryName: registration.countryName },
+      });
+
+      const cookie = cookieHeader(loginResponse.headers['set-cookie']);
+      const joinResponse = await app.inject({
+        method: 'POST',
+        url: '/api/game/join',
+        headers: { ...originHeaders, cookie },
+      });
+      expect(joinResponse.statusCode).toBe(200);
+      expect(joinResponse.json()).toMatchObject({
+        player: { login: registration.login, countryName: registration.countryName },
+      });
+    } finally {
+      await app?.close();
+      app = undefined;
+      rmSync(storageRoot, { force: true, recursive: true });
+    }
+  });
 });
+
+async function joinWorld(app: FastifyInstance, cookie: string): Promise<void> {
+  const response = await app.inject({
+    method: 'POST',
+    url: '/api/game/join',
+    headers: { ...originHeaders, cookie },
+  });
+  expect(response.statusCode).toBe(200);
+}
 
 function cookieHeader(setCookie: string | string[] | undefined): string {
   const value = Array.isArray(setCookie) ? setCookie[0] : setCookie;

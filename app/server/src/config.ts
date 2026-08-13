@@ -175,6 +175,11 @@ export const ServerConfigurationSchema = z
         allowedOrigins: z.array(z.string().url()).min(1),
       })
       .strict(),
+    accounts: z
+      .object({
+        path: z.string().min(1),
+      })
+      .strict(),
     world: z
       .object({
         path: z.string().min(1),
@@ -212,6 +217,7 @@ export type ServerConfig = {
   readonly port: number;
   readonly bindHost: string;
   readonly allowedOrigins: readonly string[];
+  readonly accountsPath: string;
   readonly worldPath: string;
   readonly worldAutoCreate: boolean;
   readonly worldName: string;
@@ -259,6 +265,10 @@ export function parseServerConfig(
     port: configuration.server.port,
     bindHost: configuration.server.bindHost,
     allowedOrigins: configuration.server.allowedOrigins,
+    accountsPath:
+      configuration.accounts.path === ':memory:'
+        ? ':memory:'
+        : resolve(PROJECT_ROOT, configuration.accounts.path),
     worldPath:
       configuration.world.path === ':memory:' ? ':memory:' : resolve(PROJECT_ROOT, configuration.world.path),
     worldAutoCreate: configuration.world.autoCreate,

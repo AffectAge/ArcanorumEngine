@@ -4,6 +4,9 @@
     "bindHost": "127.0.0.1",
     "allowedOrigins": ["http://127.0.0.1:5173"]
   },
+  "accounts": {
+    "path": ":memory:"
+  },
   "world": {
     "path": ":memory:",
     "autoCreate": true,
