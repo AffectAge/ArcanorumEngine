@@ -33,20 +33,20 @@
   "renderer": {
     "type": "scatter",
     "assetId": "asset.forest",
-    "candidateCount": 5,
+    "candidateCount": 15,
     "scalePermille": 430,
     "densitySteps": [
       {
         "min": 300,
-        "count": 2
+        "count": 6
       },
       {
         "min": 500,
-        "count": 3
+        "count": 9
       },
       {
         "min": 700,
-        "count": 5
+        "count": 15
       }
     ]
   }

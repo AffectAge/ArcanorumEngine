@@ -29,7 +29,7 @@
     "type": "sprite",
     "assetId": "asset.mountain",
     "scalePermille": 870,
-    "offsetY": -8,
+    "offsetY": 0,
     "alphaPermille": 350,
     "tint": 15136245
   }
