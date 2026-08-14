@@ -1,59 +1,50 @@
 import type { WorldLandmass, WorldWaterBody } from '@arcanorum/shared';
-import type { WorldGenerationConfig } from '../../../config.js';
 import type { HexGrid } from '../geometry/hex-grid.js';
-import { compareComponentsBySize, findComponents, floodWaterFromBoundary } from '../geometry/topology.js';
+import { floodWaterFromBoundary } from '../geometry/topology.js';
 import type { MutableHex, TerrainRoleIndex } from '../types.js';
 import { requiredCell, requiredNumber } from '../utils.js';
 
-export function assignLandmasses(
-  cells: readonly MutableHex[],
-  grid: HexGrid,
-  configuration: WorldGenerationConfig,
-): readonly WorldLandmass[] {
-  const components = [...findComponents(cells, grid, (cell) => cell.isLand)].sort(compareComponentsBySize);
-  const minimumContinentHexes = Math.floor(
-    (configuration.width * configuration.height * configuration.continentCoverage) /
-      configuration.continentCount /
-      3,
-  );
-  const continents = components.slice(0, configuration.continentCount);
-
-  if (
-    continents.length !== configuration.continentCount ||
-    continents.some((component) => component.indexes.length < minimumContinentHexes)
-  ) {
-    throw new Error(
-      `World generation produced fewer than ${configuration.continentCount} valid continents. Land components: ${components.map((component) => component.indexes.length).join(', ')}.`,
-    );
-  }
-
-  const continentComponents = new Set(continents);
-  let continentIndex = 1;
-  let islandIndex = 1;
+export function assignLandmasses(cells: readonly MutableHex[]): readonly WorldLandmass[] {
   const records: WorldLandmass[] = [];
-
-  for (const component of components) {
-    const kind = continentComponents.has(component) ? 'continent' : 'island';
-    const id =
-      kind === 'continent' ? `landmass.continent.${continentIndex++}` : `landmass.island.${islandIndex++}`;
-
-    for (const index of component.indexes) {
-      requiredCell(cells, index).landmassId = id;
+  const ordinalsByKind = new Map<'continent' | 'island', Set<number>>([
+    ['continent', new Set<number>()],
+    ['island', new Set<number>()],
+  ]);
+  for (const cell of cells) {
+    if (cell.isLand && cell.landmassKindHint !== undefined && cell.landmassOrdinal !== undefined) {
+      ordinalsByKind.get(cell.landmassKindHint)?.add(cell.landmassOrdinal);
     }
-    records.push({ id, kind, hexCount: component.indexes.length });
   }
-
+  for (const kind of ['continent', 'island'] as const) {
+    const ordinals = [...(ordinalsByKind.get(kind) ?? [])].sort((left, right) => left - right);
+    for (const ordinal of ordinals) {
+      const indexes = cells.flatMap((cell, index) =>
+        cell.isLand && cell.landmassKindHint === kind && cell.landmassOrdinal === ordinal ? [index] : [],
+      );
+      if (indexes.length === 0) {
+        throw new Error(`${kind} ${ordinal} has no dry hexes after lake formation.`);
+      }
+      const id = `landmass.${kind}.${ordinal}`;
+      for (const index of indexes) {
+        requiredCell(cells, index).landmassId = id;
+      }
+      records.push({ id, kind, hexCount: indexes.length });
+    }
+  }
+  const unclassified = cells.filter((cell) => cell.isLand && cell.landmassId === undefined);
+  if (unclassified.length > 0) {
+    throw new Error(`${unclassified.length} land hexes lack a stable topology identity.`);
+  }
   return records;
 }
 
 export function assignWaterBodies(
   cells: readonly MutableHex[],
   grid: HexGrid,
-  configuration: WorldGenerationConfig,
   terrainIds: TerrainRoleIndex,
   edgeDistance: readonly number[],
 ): readonly WorldWaterBody[] {
-  const outerOceanIndexes = floodWaterFromBoundary(cells, grid);
+  const boundaryConnectedWater = floodWaterFromBoundary(cells, grid);
   const waterIndexesById = new Map<string, number[]>();
 
   for (let index = 0; index < cells.length; index += 1) {
@@ -62,11 +53,13 @@ export function assignWaterBodies(
       cell.terrainId = terrainIds.land;
       continue;
     }
-
     const kind = cell.plannedWaterKind ?? 'ocean';
     const id = cell.plannedWaterId ?? 'water.ocean.1';
-    if (kind === 'ocean' && !outerOceanIndexes.has(index)) {
-      throw new Error(`Unplanned inland water at ${cell.q}:${cell.r} survived topology cleanup.`);
+    if (kind === 'lake' && boundaryConnectedWater.has(index)) {
+      throw new Error(`Natural lake ${id} at ${cell.q}:${cell.r} connects to the outer ocean.`);
+    }
+    if ((kind === 'ocean' || kind === 'sea') && !boundaryConnectedWater.has(index)) {
+      throw new Error(`Unclassified inland water at ${cell.q}:${cell.r} is not a lake.`);
     }
     cell.waterBodyId = id;
     cell.terrainId = terrainIds[kind];
@@ -75,39 +68,32 @@ export function assignWaterBodies(
     waterIndexesById.set(id, indexes);
   }
 
-  const oceanIndexes = waterIndexesById.get('water.ocean.1');
-  if (oceanIndexes === undefined) {
+  const records: WorldWaterBody[] = [];
+  const ocean = waterIndexesById.get('water.ocean.1');
+  if (ocean === undefined || ocean.length === 0) {
     throw new Error('World generation did not retain an outer ocean.');
   }
-  const records: WorldWaterBody[] = [{ id: 'water.ocean.1', kind: 'ocean', hexCount: oceanIndexes.length }];
+  records.push({ id: 'water.ocean.1', kind: 'ocean', hexCount: ocean.length });
   for (const kind of ['sea', 'lake'] as const) {
-    const ids = [...waterIndexesById.keys()].filter((id) => id.startsWith(`water.${kind}.`)).sort();
+    const ids = [...waterIndexesById.keys()]
+      .filter((id) => id.startsWith(`water.${kind}.`))
+      .sort(compareStableIds);
     for (const id of ids) {
       const indexes = waterIndexesById.get(id);
-      if (indexes === undefined) {
-        throw new Error(`Water-body indexes are missing for ${id}.`);
+      if (indexes === undefined || indexes.length === 0) {
+        throw new Error(`Water body ${id} has no classified hexes.`);
       }
       records.push({ id, kind, hexCount: indexes.length });
     }
   }
-
-  if (
-    records.filter((record) => record.kind === 'sea').length !== configuration.seaCount ||
-    records.filter((record) => record.kind === 'lake').length !== configuration.lakeCount
-  ) {
-    throw new Error('World generation did not preserve every planned sea and lake.');
+  for (let index = 0; index < grid.size; index += 1) {
+    if (
+      requiredNumber(edgeDistance, index) === 0 &&
+      requiredCell(cells, index).waterBodyId !== 'water.ocean.1'
+    ) {
+      throw new Error('Every map-boundary hex must belong to the outer ocean.');
+    }
   }
-
-  if (
-    Array.from({ length: grid.size }, (_, index) => index).some(
-      (index) =>
-        requiredNumber(edgeDistance, index) === 0 &&
-        requiredCell(cells, index).waterBodyId !== 'water.ocean.1',
-    )
-  ) {
-    throw new Error('Every map-boundary water hex must belong to the outer ocean.');
-  }
-
   return records;
 }
 
@@ -117,37 +103,35 @@ export function assignCoastalWater(
   coastalWaterWidth: number,
   terrainIds: TerrainRoleIndex,
 ): void {
-  const coastalIndexes = new Set<number>();
-
-  for (let step = 0; step < coastalWaterWidth; step += 1) {
-    const sources =
-      step === 0
-        ? Array.from({ length: grid.size }, (_, index) => index).filter(
-            (index) =>
-              !requiredCell(cells, index).isLand &&
-              grid.neighborsOf(index).some((neighbor) => requiredCell(cells, neighbor).isLand),
-          )
-        : [...coastalIndexes];
-
-    for (const source of sources) {
-      coastalIndexes.add(source);
+  let frontier = Array.from({ length: grid.size }, (_, index) => index).filter(
+    (index) =>
+      isSaltWater(requiredCell(cells, index)) &&
+      grid.neighborsOf(index).some((neighbor) => requiredCell(cells, neighbor).isLand),
+  );
+  const coastalIndexes = new Set(frontier);
+  for (let step = 1; step < coastalWaterWidth; step += 1) {
+    const next: number[] = [];
+    for (const source of frontier) {
       for (const neighbor of grid.neighborsOf(source)) {
-        const cell = requiredCell(cells, neighbor);
-        if (!cell.isLand && isOuterOcean(cell)) {
+        if (isSaltWater(requiredCell(cells, neighbor)) && !coastalIndexes.has(neighbor)) {
           coastalIndexes.add(neighbor);
+          next.push(neighbor);
         }
       }
     }
+    frontier = next;
   }
-
   for (const index of coastalIndexes) {
-    const cell = requiredCell(cells, index);
-    if (isOuterOcean(cell)) {
-      cell.terrainId = terrainIds.coastal_water;
-    }
+    requiredCell(cells, index).terrainId = terrainIds.coastal_water;
   }
 }
 
-function isOuterOcean(cell: MutableHex): boolean {
-  return cell.waterBodyId === 'water.ocean.1';
+function isSaltWater(cell: MutableHex): boolean {
+  return cell.waterBodyId === 'water.ocean.1' || cell.waterBodyId?.startsWith('water.sea.') === true;
+}
+
+function compareStableIds(left: string, right: string): number {
+  const leftOrdinal = Number(left.slice(left.lastIndexOf('.') + 1));
+  const rightOrdinal = Number(right.slice(right.lastIndexOf('.') + 1));
+  return leftOrdinal - rightOrdinal || (left < right ? -1 : left > right ? 1 : 0);
 }

@@ -1,4 +1,3 @@
-import type { SeededRandom } from './random.js';
 import type { MutableHex } from './types.js';
 
 export function minimum(values: readonly number[]): number {
@@ -31,18 +30,6 @@ export function smoothstep(start: number, end: number, value: number): number {
   return progress * progress * (3 - 2 * progress);
 }
 
-export function randomBetween(random: SeededRandom, minimumValue: number, maximumValue: number): number {
-  return minimumValue + random.nextFloat() * (maximumValue - minimumValue);
-}
-
-export function randomBetweenInteger(
-  random: SeededRandom,
-  minimumValue: number,
-  maximumValue: number,
-): number {
-  return minimumValue + random.nextInt(maximumValue - minimumValue + 1);
-}
-
 export function clampInteger(value: number): number {
   return Math.max(0, Math.min(1000, Math.round(value)));
 }
@@ -69,15 +56,4 @@ export function requiredBoolean(values: readonly boolean[], index: number): bool
     throw new Error(`Boolean layer index is out of bounds: ${index}.`);
   }
   return value;
-}
-
-export function shuffle<T>(values: readonly T[], random: SeededRandom): T[] {
-  const result = [...values];
-  for (let index = result.length - 1; index > 0; index -= 1) {
-    const targetIndex = random.nextInt(index + 1);
-    const current = result[index];
-    result[index] = result[targetIndex] as T;
-    result[targetIndex] = current as T;
-  }
-  return result;
 }

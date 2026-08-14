@@ -29,6 +29,7 @@ const WorldManifestSchema = z
 const WorldGenerationSnapshotSchema = z
   .object({
     format: z.literal('arcanorum-world-generation'),
+    version: z.literal(4),
     worldName: z.string().min(1),
     seed: z.string().min(1),
     terrainCatalogFingerprint: z.string().regex(/^[a-f0-9]{64}$/),
@@ -41,18 +42,27 @@ type WorldGenerationSnapshot = z.infer<typeof WorldGenerationSnapshotSchema>;
 export const WORLD_CHUNK_WIDTH = 32;
 export const WORLD_CHUNK_HEIGHT = 32;
 
-export type PreparedWorld = {
-  readonly databasePath: string;
-  readonly isNew: boolean;
-  readonly snapshot: WorldGenerationSnapshot;
-};
+export type PreparedWorld =
+  | {
+      readonly databasePath: string;
+      readonly isNew: true;
+      readonly snapshot: WorldGenerationSnapshot;
+      readonly generatedWorld: GeneratedWorld;
+    }
+  | {
+      readonly databasePath: string;
+      readonly isNew: false;
+      readonly snapshot: WorldGenerationSnapshot;
+    };
 
 export function prepareWorld(config: ServerConfig, terrainCatalog: LoadedTerrainCatalog): PreparedWorld {
   if (config.worldPath === ':memory:') {
+    const snapshot = createSnapshot(config, terrainCatalog, config.worldSeed);
     return {
       databasePath: ':memory:',
       isNew: true,
-      snapshot: createSnapshot(config, terrainCatalog, config.worldSeed),
+      snapshot,
+      generatedWorld: generateWorld(snapshot.seed, snapshot.generation, terrainCatalog.catalog),
     };
   }
 
@@ -66,9 +76,10 @@ export function prepareWorld(config: ServerConfig, terrainCatalog: LoadedTerrain
       throw new Error(`World does not exist and autoCreate is disabled: ${config.worldPath}`);
     }
 
-    mkdirSync(config.worldPath, { recursive: true });
     const seed = config.worldSeed === 'auto' ? randomBytes(16).toString('hex') : config.worldSeed;
     const snapshot = createSnapshot(config, terrainCatalog, seed);
+    const generatedWorld = generateWorld(seed, snapshot.generation, terrainCatalog.catalog);
+    mkdirSync(config.worldPath, { recursive: true });
     writeJson(manifestPath, {
       format: 'arcanorum-world',
       generationFile: 'generation.json',
@@ -76,7 +87,7 @@ export function prepareWorld(config: ServerConfig, terrainCatalog: LoadedTerrain
     });
     writeJson(generationPath, snapshot);
 
-    return { databasePath, isNew: true, snapshot };
+    return { databasePath, isNew: true, snapshot, generatedWorld };
   }
 
   if (!existsSync(manifestPath) || !existsSync(generationPath) || !existsSync(databasePath)) {
@@ -90,7 +101,7 @@ export function prepareWorld(config: ServerConfig, terrainCatalog: LoadedTerrain
     throw new Error(`World manifest has unsupported file ownership in ${manifestPath}.`);
   }
 
-  const snapshot = readJson(generationPath, WorldGenerationSnapshotSchema);
+  const snapshot = readGenerationSnapshot(generationPath);
   if (snapshot.terrainCatalogFingerprint !== terrainCatalog.fingerprint) {
     throw new Error(
       'Terrain content changed after this world was generated. Restore matching content or create a new world.',
@@ -117,13 +128,7 @@ export class WorldService {
       if (worldRowCount.count !== 0) {
         throw new Error('A new world cannot be initialized into a database that already contains map hexes.');
       }
-      this.persistGeneratedWorld(
-        generateWorld(
-          this.preparedWorld.snapshot.seed,
-          this.preparedWorld.snapshot.generation,
-          this.terrainCatalog.catalog,
-        ),
-      );
+      this.persistGeneratedWorld(this.preparedWorld.generatedWorld);
     } else if (worldRowCount.count === 0) {
       throw new Error(
         'Existing world database contains no map hexes. Startup stopped to prevent regeneration.',
@@ -237,6 +242,7 @@ export class WorldService {
     return createHash('sha256')
       .update(
         JSON.stringify({
+          generationVersion: this.preparedWorld.snapshot.version,
           seed: this.preparedWorld.snapshot.seed,
           generation: this.preparedWorld.snapshot.generation,
           terrainCatalogFingerprint: this.preparedWorld.snapshot.terrainCatalogFingerprint,
@@ -420,11 +426,28 @@ function createSnapshot(
 ): WorldGenerationSnapshot {
   return {
     format: 'arcanorum-world-generation',
+    version: 4,
     worldName: config.worldName,
     seed,
     terrainCatalogFingerprint: terrainCatalog.fingerprint,
     generation: config.worldGeneration,
   };
+}
+
+function readGenerationSnapshot(filePath: string): WorldGenerationSnapshot {
+  const source = readJson(filePath, z.unknown());
+  if (
+    typeof source === 'object' &&
+    source !== null &&
+    'format' in source &&
+    source.format === 'arcanorum-world-generation' &&
+    (!('version' in source) || source.version !== 4)
+  ) {
+    throw new Error(
+      `World generation snapshot at ${filePath} is incompatible with basin-mouth generator v4. The existing world was not modified; create a new world directory to use generator v4.`,
+    );
+  }
+  return WorldGenerationSnapshotSchema.parse(source);
 }
 
 function readJson<TSchema extends z.ZodType>(filePath: string, schema: TSchema): z.infer<TSchema> {

@@ -1,6 +1,6 @@
 type QueueEntry = { readonly index: number; readonly elevation: number };
 
-/** Stable tie-breaking by hex index keeps the hydrology flood deterministic. */
+/** Stable tie-breaking by hex index keeps every graph priority traversal deterministic. */
 export class MinPriorityQueue {
   private readonly values: QueueEntry[] = [];
 

@@ -10,150 +10,104 @@ export const WorldGenerationSchema = z
   .object({
     width: z.number().int().min(24).max(512),
     height: z.number().int().min(24).max(512),
-    continentCount: z.number().int().min(1).max(12),
-    continentCoverage: z.number().min(0.08).max(0.72),
-    continentMinimumSeparation: z.number().int().min(4).max(160),
-    outerOcean: z
-      .object({
-        hardWidth: z.number().int().min(1).max(64),
-      })
-      .strict(),
-    continentalPlacement: z
-      .object({
-        edgeClearance: z.number().int().min(0).max(96),
-      })
-      .strict(),
-    continentalAxes: z
-      .object({
-        minimumCount: z.number().int().min(2).max(6),
-        maximumCount: z.number().int().min(2).max(6),
-        primaryLengthMinimumFactor: z.number().min(0.5).max(4),
-        primaryLengthMaximumFactor: z.number().min(0.5).max(4),
-        branchLengthMinimumFactor: z.number().min(0.25).max(3),
-        branchLengthMaximumFactor: z.number().min(0.25).max(3),
-        widthMinimumFactor: z.number().min(0.2).max(2),
-        widthMaximumFactor: z.number().min(0.2).max(2),
-        landThreshold: z.number().min(0.01).max(0.8),
-        separationWidth: z.number().min(1).max(32),
-        domainWarpScale: z.number().min(4).max(256),
-        domainWarpAmount: z.number().min(0).max(48),
-      })
-      .strict(),
-    coastNoise: z
-      .object({
-        macroScale: z.number().min(8).max(256),
-        macroAmplitude: z.number().min(0).max(0.6),
-        bayScale: z.number().min(3).max(128),
-        bayAmplitude: z.number().min(0).max(0.4),
-        detailScale: z.number().min(2).max(64),
-        detailAmplitude: z.number().min(0).max(0.15),
-      })
-      .strict(),
     topology: z
       .object({
-        smoothingPasses: z.number().int().min(0).max(2),
-        minimumIslandHexes: z.number().int().min(1).max(10_000),
+        mapStyle: z.enum(['continents', 'fractal', 'pangaea', 'archipelago']),
+        landCoverage: z.number().min(0.08).max(0.72),
+        candidateCount: z.number().int().min(1).max(16),
+        continentalGrain: z.number().int().min(1).max(8),
+        riftStrength: z.number().min(0).max(1),
+        islandFrequency: z.number().min(0).max(1),
+        edgeClearance: z.number().int().min(0).max(48),
+        outerOceanWidth: z.number().int().min(1).max(32),
+        coastRoughness: z.number().min(0).max(1),
+        coastalWaterWidth: z.number().int().min(1).max(3),
+        seaMinimumHexes: z.number().int().min(6).max(20_000),
+        seaMaximumMouthWidth: z.number().int().min(1).max(32),
+        seaMinimumDepth: z.number().int().min(1).max(64),
+        seaMinimumEnclosure: z.number().min(0).max(1),
       })
       .strict(),
-    seaLevel: z.number().int().min(100).max(800),
-    islandCount: z.number().int().min(0).max(200),
-    islandMaximumRadius: z.number().int().min(1).max(16),
-    seaCount: z.number().int().min(0).max(16),
-    seaRadius: z.number().int().min(2).max(24),
-    seaChannelMinimumWidth: z.number().int().min(1).max(12),
-    seaChannelMaximumWidth: z.number().int().min(1).max(12),
-    seaChannelMeander: z.number().min(0).max(0.75),
-    lakeCount: z.number().int().min(0).max(100),
-    lakeRadius: z.number().int().min(1).max(12),
-    coastalWaterWidth: z.number().int().min(1).max(3),
-    mountainRangeCount: z.number().int().min(0).max(64),
-    mountainRangeMinimumLength: z.number().int().min(3).max(96),
-    mountainRangeMaximumLength: z.number().int().min(3).max(160),
-    mountainRangeWidth: z.number().min(1).max(24),
-    mountainRangeHeight: z.number().int().min(10).max(600),
-    riverFlowThreshold: z.number().min(0.0001).max(0.25),
+    tectonics: z
+      .object({
+        plateCount: z.number().int().min(4).max(64),
+        activity: z.number().min(0).max(1),
+        boundaryFalloff: z.number().int().min(1).max(24),
+        collisionUplift: z.number().int().min(0).max(500),
+        subductionUplift: z.number().int().min(0).max(500),
+        trenchDepth: z.number().int().min(0).max(400),
+        riftDepth: z.number().int().min(0).max(300),
+        hotspotCount: z.number().int().min(0).max(32),
+      })
+      .strict(),
+    relief: z
+      .object({
+        seaLevel: z.number().int().min(200).max(750),
+        continentalBaseElevation: z.number().int().min(10).max(300),
+        oceanFloorDepth: z.number().int().min(80).max(600),
+        shelfWidth: z.number().int().min(1).max(16),
+        regionalNoiseScale: z.number().int().min(8).max(256),
+        regionalNoiseAmplitude: z.number().int().min(0).max(250),
+        detailNoiseScale: z.number().int().min(2).max(64),
+        detailNoiseAmplitude: z.number().int().min(0).max(100),
+      })
+      .strict(),
     climate: z
       .object({
         equatorialTemperature: z.number().int().min(0).max(1000),
         polarTemperature: z.number().int().min(0).max(1000),
         elevationCooling: z.number().min(0).max(2),
-        prevailingWind: z.enum(['west_to_east', 'east_to_west']),
-        rainfallNoise: z.number().int().min(0).max(250),
+        windBandStrength: z.number().int().min(0).max(1000),
+        moistureTransportPasses: z.number().int().min(1).max(64),
+        orographicStrength: z.number().int().min(0).max(1000),
+        evaporationStrength: z.number().int().min(0).max(1000),
+        rainfallNoise: z.number().int().min(0).max(200),
+      })
+      .strict(),
+    hydrology: z
+      .object({
+        minimumLakeHexes: z.number().int().min(1).max(500),
+        maximumLakeCoverage: z.number().min(0).max(0.08),
+        lakeWaterBalanceThreshold: z.number().int().min(0).max(1000),
+        channelInitiationRunoff: z.number().int().min(100).max(100_000_000),
+        erosionPasses: z.number().int().min(0).max(8),
+        streamPowerStrength: z.number().int().min(0).max(100),
+        maximumIncisionPerPass: z.number().int().min(0).max(50),
       })
       .strict(),
   })
   .strict()
   .superRefine((value, context) => {
-    if (value.continentMinimumSeparation >= Math.min(value.width, value.height)) {
+    const interiorWidth = value.width - 2 * value.topology.outerOceanWidth;
+    const interiorHeight = value.height - 2 * value.topology.outerOceanWidth;
+    if (interiorWidth <= 0 || interiorHeight <= 0) {
       context.addIssue({
         code: z.ZodIssueCode.custom,
-        message: 'continentMinimumSeparation must fit inside the configured map.',
-        path: ['continentMinimumSeparation'],
-      });
-    }
-
-    if (value.continentCoverage / value.continentCount < 0.025) {
-      context.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'continentCoverage is too small for the requested continentCount.',
-        path: ['continentCoverage'],
+        message: 'topology.outerOceanWidth leaves no usable map interior.',
+        path: ['topology', 'outerOceanWidth'],
       });
     }
 
     if (
-      value.outerOcean.hardWidth + value.continentalPlacement.edgeClearance >=
+      value.topology.outerOceanWidth + value.topology.edgeClearance >=
       Math.min(value.width, value.height) / 2
     ) {
       context.addIssue({
         code: z.ZodIssueCode.custom,
-        message: 'outerOcean hardWidth and continentalPlacement edgeClearance leave no usable interior.',
-        path: ['continentalPlacement'],
+        message: 'Ocean and edge clearance leave no usable land-generation interior.',
+        path: ['topology'],
       });
     }
 
-    if (value.continentalAxes.minimumCount > value.continentalAxes.maximumCount) {
+    const targetLandHexes = Math.round(value.width * value.height * value.topology.landCoverage);
+    const protectedMargin = value.topology.outerOceanWidth + value.topology.edgeClearance;
+    const usableWidth = Math.max(0, value.width - protectedMargin * 2);
+    const usableHeight = Math.max(0, value.height - protectedMargin * 2);
+    if (targetLandHexes > usableWidth * usableHeight) {
       context.addIssue({
         code: z.ZodIssueCode.custom,
-        message: 'continentalAxes minimumCount cannot exceed maximumCount.',
-        path: ['continentalAxes', 'minimumCount'],
-      });
-    }
-
-    for (const [minimum, maximum, name] of [
-      [
-        value.continentalAxes.primaryLengthMinimumFactor,
-        value.continentalAxes.primaryLengthMaximumFactor,
-        'primaryLength',
-      ],
-      [
-        value.continentalAxes.branchLengthMinimumFactor,
-        value.continentalAxes.branchLengthMaximumFactor,
-        'branchLength',
-      ],
-      [value.continentalAxes.widthMinimumFactor, value.continentalAxes.widthMaximumFactor, 'width'],
-    ] as const) {
-      if (minimum > maximum) {
-        context.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: `continentalAxes ${name} minimum cannot exceed maximum.`,
-          path: ['continentalAxes'],
-        });
-      }
-    }
-
-    if (value.seaChannelMinimumWidth > value.seaChannelMaximumWidth) {
-      context.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'seaChannelMinimumWidth cannot exceed seaChannelMaximumWidth.',
-        path: ['seaChannelMinimumWidth'],
-      });
-    }
-
-    if (value.mountainRangeMinimumLength > value.mountainRangeMaximumLength) {
-      context.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'mountainRangeMinimumLength cannot exceed mountainRangeMaximumLength.',
-        path: ['mountainRangeMinimumLength'],
+        message: 'landCoverage exceeds the land-generation interior after ocean margins.',
+        path: ['topology', 'landCoverage'],
       });
     }
 

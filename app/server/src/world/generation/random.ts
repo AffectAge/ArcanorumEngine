@@ -19,6 +19,14 @@ export class SeededRandom {
   }
 }
 
+/** A stage stream is independent from every other stage and can be replayed by name. */
+export function createRandomStream(worldSeed: string, streamName: string): SeededRandom {
+  if (!/^[a-z][a-z0-9_.-]+$/.test(streamName)) {
+    throw new Error(`Invalid deterministic RNG stream name: ${streamName}`);
+  }
+  return new SeededRandom(`${worldSeed}\u0000${streamName}`);
+}
+
 function hashSeed(seed: string): number {
   let hash = 2_166_136_261;
   for (const character of seed) {
