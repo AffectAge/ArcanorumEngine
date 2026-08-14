@@ -105,7 +105,7 @@ export function assignCoastalWater(
 ): void {
   let frontier = Array.from({ length: grid.size }, (_, index) => index).filter(
     (index) =>
-      requiredCell(cells, index).waterBodyId === 'water.ocean.1' &&
+      isSaltWater(requiredCell(cells, index)) &&
       grid.neighborsOf(index).some((neighbor) => requiredCell(cells, neighbor).isLand),
   );
   const coastalIndexes = new Set(frontier);
@@ -113,7 +113,7 @@ export function assignCoastalWater(
     const next: number[] = [];
     for (const source of frontier) {
       for (const neighbor of grid.neighborsOf(source)) {
-        if (requiredCell(cells, neighbor).waterBodyId === 'water.ocean.1' && !coastalIndexes.has(neighbor)) {
+        if (isSaltWater(requiredCell(cells, neighbor)) && !coastalIndexes.has(neighbor)) {
           coastalIndexes.add(neighbor);
           next.push(neighbor);
         }
@@ -124,6 +124,10 @@ export function assignCoastalWater(
   for (const index of coastalIndexes) {
     requiredCell(cells, index).terrainId = terrainIds.coastal_water;
   }
+}
+
+function isSaltWater(cell: MutableHex): boolean {
+  return cell.waterBodyId === 'water.ocean.1' || cell.waterBodyId?.startsWith('water.sea.') === true;
 }
 
 function compareStableIds(left: string, right: string): number {

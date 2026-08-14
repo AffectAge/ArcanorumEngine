@@ -185,7 +185,8 @@ hex graph and serialized river-edge contract.
 ### 10. Assign geography and validate
 
 `stage.geography` assigns emergent continent/island IDs, the outer ocean, marginal seas, natural
-lakes, and coastal-water terrain.
+lakes, and coastal-water terrain. Coastal-water terrain is applied beside land to both outer-ocean
+and marginal-sea hexes without replacing their water-body IDs.
 
 Validation requires:
 

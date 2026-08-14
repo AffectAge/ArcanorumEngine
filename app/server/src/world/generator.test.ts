@@ -91,6 +91,7 @@ describe('world generation', () => {
     expect(first.diagnostics.connectedSeaCount).toBe(
       first.waterBodies.filter((waterBody) => waterBody.kind === 'sea').length,
     );
+    expectSaltWaterCoastsUseCoastalTerrain(first);
     expect(first.diagnostics.stages.map((stage) => stage.id)).toEqual([
       'stage.base_grid',
       'stage.tectonic_plates',
@@ -264,6 +265,21 @@ function expectWaterBodiesConsistent(world: ReturnType<typeof generateWorld>): v
   expect(world.diagnostics.connectedSeaCount).toBe(
     world.waterBodies.filter((waterBody) => waterBody.kind === 'sea').length,
   );
+}
+
+function expectSaltWaterCoastsUseCoastalTerrain(world: ReturnType<typeof generateWorld>): void {
+  const hexByCoordinate = new Map(world.hexes.map((hex) => [`${hex.q}:${hex.r}`, hex]));
+  const coastalSeaHexes = world.hexes.filter(
+    (hex) =>
+      hex.waterBodyId?.startsWith('water.sea.') === true &&
+      neighborOffsets(hex.q).some(
+        ([deltaQ, deltaR]) =>
+          hexByCoordinate.get(`${hex.q + deltaQ}:${hex.r + deltaR}`)?.landmassId !== undefined,
+      ),
+  );
+
+  expect(coastalSeaHexes.length).toBeGreaterThan(0);
+  expect(coastalSeaHexes.every((hex) => hex.terrainId === 'terrain.coastal_water')).toBe(true);
 }
 
 /** Regression guard for the old domain-filling, nearly rectangular continents. */
