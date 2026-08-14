@@ -1,5 +1,5 @@
 import type { TerrainCatalog } from '@arcanorum/shared';
-import type { WorldGenerationConfig } from '../../../config.js';
+import type { CompiledWorldGenerationConfig } from '../config-compiler.js';
 import type { HexGrid } from '../geometry/hex-grid.js';
 import type { MutableHex, TerrainRole, TerrainRoleIndex } from '../types.js';
 import { clampInteger } from '../utils.js';
@@ -22,19 +22,28 @@ export function createTerrainRoleIndex(catalog: TerrainCatalog): TerrainRoleInde
 
 export function createBaseCells(
   grid: HexGrid,
-  configuration: WorldGenerationConfig,
+  configuration: CompiledWorldGenerationConfig,
   landTerrainId: string,
 ): MutableHex[] {
   return Array.from({ length: grid.size }, (_, index) => {
     const coordinate = grid.coordinateAt(index);
     return {
       ...coordinate,
-      elevation: clampInteger(configuration.seaLevel - 180),
+      elevation: clampInteger(
+        configuration.source.relief.seaLevel - configuration.source.relief.oceanFloorDepth,
+      ),
       isLand: false,
       terrainId: landTerrainId,
       temperature: 0,
       rainfall: 0,
+      runoff: 0,
       flowAccumulation: 0,
+      plateId: 0,
+      crustKind: 'oceanic',
+      tectonicUplift: 0,
+      tectonicSubsidence: 0,
+      landmassKindHint: undefined,
+      landmassOrdinal: undefined,
       plannedWaterKind: undefined,
       plannedWaterId: undefined,
       landmassId: undefined,

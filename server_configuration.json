@@ -15,64 +15,58 @@
     "generation": {
       "width": 384,
       "height": 256,
-      "continentCount": 3,
-      "continentCoverage": 0.38,
-      "continentMinimumSeparation": 24,
-      "outerOcean": {
-        "hardWidth": 3
-      },
-      "continentalPlacement": {
-        "edgeClearance": 4
-      },
-      "continentalAxes": {
-        "minimumCount": 3,
-        "maximumCount": 4,
-        "primaryLengthMinimumFactor": 0.55,
-        "primaryLengthMaximumFactor": 0.85,
-        "branchLengthMinimumFactor": 0.45,
-        "branchLengthMaximumFactor": 0.7,
-        "widthMinimumFactor": 0.55,
-        "widthMaximumFactor": 0.65,
-        "landThreshold": 0.01,
-        "separationWidth": 7,
-        "domainWarpScale": 64,
-        "domainWarpAmount": 9
-      },
-      "coastNoise": {
-        "macroScale": 96,
-        "macroAmplitude": 0.22,
-        "bayScale": 28,
-        "bayAmplitude": 0.16,
-        "detailScale": 8,
-        "detailAmplitude": 0.045
-      },
       "topology": {
-        "smoothingPasses": 1,
-        "minimumIslandHexes": 6
+        "mapStyle": "continents",
+        "landCoverage": 0.38,
+        "candidateCount": 8,
+        "continentalGrain": 3,
+        "riftStrength": 0.72,
+        "islandFrequency": 0.45,
+        "edgeClearance": 4,
+        "outerOceanWidth": 3,
+        "coastRoughness": 0.62,
+        "coastalWaterWidth": 1,
+        "seaMinimumHexes": 30,
+        "seaEnclosureThreshold": 3
       },
-      "seaLevel": 530,
-      "islandCount": 18,
-      "islandMaximumRadius": 4,
-      "seaCount": 1,
-      "seaRadius": 7,
-      "seaChannelMinimumWidth": 2,
-      "seaChannelMaximumWidth": 4,
-      "seaChannelMeander": 0.32,
-      "lakeCount": 9,
-      "lakeRadius": 3,
-      "coastalWaterWidth": 1,
-      "mountainRangeCount": 9,
-      "mountainRangeMinimumLength": 18,
-      "mountainRangeMaximumLength": 52,
-      "mountainRangeWidth": 4,
-      "mountainRangeHeight": 260,
-      "riverFlowThreshold": 0.015,
+      "tectonics": {
+        "plateCount": 16,
+        "activity": 0.65,
+        "boundaryFalloff": 8,
+        "collisionUplift": 280,
+        "subductionUplift": 210,
+        "trenchDepth": 130,
+        "riftDepth": 90,
+        "hotspotCount": 4
+      },
+      "relief": {
+        "seaLevel": 530,
+        "continentalBaseElevation": 80,
+        "oceanFloorDepth": 300,
+        "shelfWidth": 4,
+        "regionalNoiseScale": 48,
+        "regionalNoiseAmplitude": 70,
+        "detailNoiseScale": 9,
+        "detailNoiseAmplitude": 22
+      },
       "climate": {
         "equatorialTemperature": 900,
         "polarTemperature": 230,
         "elevationCooling": 0.55,
-        "prevailingWind": "west_to_east",
+        "windBandStrength": 650,
+        "moistureTransportPasses": 24,
+        "orographicStrength": 700,
+        "evaporationStrength": 420,
         "rainfallNoise": 55
+      },
+      "hydrology": {
+        "minimumLakeHexes": 3,
+        "maximumLakeCoverage": 0.012,
+        "lakeWaterBalanceThreshold": 100,
+        "channelInitiationRunoff": 18000,
+        "erosionPasses": 3,
+        "streamPowerStrength": 18,
+        "maximumIncisionPerPass": 12
       }
     }
   }
