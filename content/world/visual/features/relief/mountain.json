@@ -29,6 +29,7 @@
     "type": "sprite",
     "assetId": "asset.mountain",
     "scalePermille": 850,
-    "offsetY": -8
+    "offsetY": 0,
+    "originY": 0.85
   }
 }

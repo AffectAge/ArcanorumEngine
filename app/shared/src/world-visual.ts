@@ -146,6 +146,8 @@ const WorldVisualSpriteRendererSchema = z
     scalePermille: z.number().int().positive().max(4000),
     offsetX: z.number().int().min(-2000).max(2000).default(0),
     offsetY: z.number().int().min(-2000).max(2000).default(0),
+    originX: z.number().min(0).max(1).default(0.5),
+    originY: z.number().min(0).max(1).default(0.5),
     alphaPermille: VisualScoreSchema.default(1000),
     tint: z.number().int().min(0).max(0xffffff).optional(),
   })
@@ -167,6 +169,8 @@ const WorldVisualScatterRendererSchema = z
           .strict(),
       )
       .min(1),
+    originX: z.number().min(0).max(1).default(0.5),
+    originY: z.number().min(0).max(1).default(0.5),
     alphaPermille: VisualScoreSchema.default(1000),
     tint: z.number().int().min(0).max(0xffffff).optional(),
   })

@@ -17,6 +17,22 @@ const catalog = {
 };
 
 describe('WorldVisualCatalogSchema', () => {
+  it('centers renderer origins by default and accepts a per-feature override', () => {
+    const centered = WorldVisualCatalogSchema.parse(catalog);
+    expect(centered.features[0]?.renderer).toMatchObject({ originX: 0.5, originY: 0.5 });
+
+    const anchored = WorldVisualCatalogSchema.parse({
+      ...catalog,
+      features: [
+        {
+          ...catalog.features[0]!,
+          renderer: { ...catalog.features[0]!.renderer, originY: 0.85 },
+        },
+      ],
+    });
+    expect(anchored.features[0]?.renderer).toMatchObject({ originX: 0.5, originY: 0.85 });
+  });
+
   it('rejects a visual feature that references an unknown fact', () => {
     const invalid = {
       ...catalog,

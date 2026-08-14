@@ -28,6 +28,13 @@ density thresholds. Both are rendered through a `SpriteGPULayer` per chunk,
 visual layer, and texture key; their contents are constructed once when a chunk
 loads and destroyed when it unloads.
 
+Every visual renderer has a normalized `originX` and `originY` in the range
+from `0` through `1`. Both default to `0.5`, so a texture is centered on the
+hex. Set either field in an individual feature's `renderer` object when its
+art needs another anchor: tall trees and mountains use `originY: 0.85` to put
+their base on the hex center, while a ground texture such as a swamp uses
+`originY: 0.5`.
+
 `TilemapLayer` remains the primitive for terrain and connected river topology.
 Every chunk response also includes a non-rendered one-hex `visualNeighbors`
 halo. Neighbor-aware signals such as `neighbor.ruggedness` consume this halo,

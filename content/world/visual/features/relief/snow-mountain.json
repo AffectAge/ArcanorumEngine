@@ -28,9 +28,10 @@
   "renderer": {
     "type": "sprite",
     "assetId": "asset.mountain",
-    "scalePermille": 870,
+    "scalePermille": 1000,
     "offsetY": 0,
-    "alphaPermille": 350,
+    "originY": 0.85,
+    "alphaPermille": 1000,
     "tint": 15136245
   }
 }

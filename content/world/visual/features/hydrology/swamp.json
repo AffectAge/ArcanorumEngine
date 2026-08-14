@@ -23,7 +23,8 @@
   "renderer": {
     "type": "sprite",
     "assetId": "asset.swamp",
-    "scalePermille": 760,
-    "offsetY": 0
+    "scalePermille": 1000,
+    "offsetY": 0,
+    "originY": 0.5
   }
 }

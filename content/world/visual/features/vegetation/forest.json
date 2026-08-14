@@ -35,6 +35,7 @@
     "assetId": "asset.forest",
     "candidateCount": 15,
     "scalePermille": 430,
+    "originY": 0.85,
     "densitySteps": [
       {
         "min": 300,

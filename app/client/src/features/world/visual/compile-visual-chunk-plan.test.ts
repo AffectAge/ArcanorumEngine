@@ -147,6 +147,7 @@ const world = WorldBaseResponseSchema.parse({
             type: 'sprite',
             assetId: 'asset.mountain',
             scalePermille: 850,
+            originY: 0.85,
           },
         },
         {
@@ -287,7 +288,9 @@ describe('compileVisualChunkPlan', () => {
       'feature.mountain',
       'feature.snow_mountain',
     ]);
+    expect(first.layers[0]?.sprites[0]).toMatchObject({ originX: 0.5, originY: 0.85 });
     expect(first.layers[1]?.sprites[0]).toMatchObject({ featureId: 'feature.swamp', q: 0, r: 1 });
+    expect(first.layers[1]?.sprites[0]).toMatchObject({ originX: 0.5, originY: 0.5 });
     expect(first.layers[2]?.sprites.every((sprite) => sprite.featureId === 'feature.forest')).toBe(true);
     expect(chunk.hexes).toHaveLength(4);
   });

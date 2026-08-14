@@ -13,6 +13,8 @@ export type VisualChunkSprite = {
   readonly r: number;
   readonly offsetX: number;
   readonly offsetY: number;
+  readonly originX: number;
+  readonly originY: number;
   readonly scalePermille: number;
   readonly alphaPermille: number;
   readonly tint: number | undefined;
@@ -100,6 +102,8 @@ export function compileVisualChunkPlan(world: WorldBaseResponse, chunk: WorldGeo
           r: hex.r,
           offsetX: feature.renderer.offsetX,
           offsetY: feature.renderer.offsetY,
+          originX: feature.renderer.originX,
+          originY: feature.renderer.originY,
           scalePermille: feature.renderer.scalePermille,
           alphaPermille: feature.renderer.alphaPermille,
           tint: feature.renderer.tint,
@@ -284,6 +288,8 @@ function createScatterSprite(
     r,
     offsetX,
     offsetY,
+    originX: feature.renderer.originX,
+    originY: feature.renderer.originY,
     scalePermille: Math.max(1, feature.renderer.scalePermille + scaleVariation),
     alphaPermille: feature.renderer.alphaPermille,
     tint: feature.renderer.tint,
