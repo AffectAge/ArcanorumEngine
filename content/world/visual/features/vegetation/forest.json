@@ -1,0 +1,54 @@
+{
+  "id": "feature.forest",
+  "layerId": "layer.vegetation",
+  "priority": 10,
+  "when": {
+    "all": [
+      {
+        "fact": "hex.terrain_role",
+        "operator": "eq",
+        "value": "land"
+      },
+      {
+        "fact": "hex.elevation",
+        "operator": "lte",
+        "value": 740
+      },
+      {
+        "fact": "environment.vegetation_potential",
+        "operator": "gte",
+        "value": 300
+      },
+      {
+        "fact": "environment.swamp_potential",
+        "operator": "lte",
+        "value": 349
+      }
+    ]
+  },
+  "intensity": {
+    "type": "fact",
+    "fact": "environment.vegetation_potential"
+  },
+  "renderer": {
+    "type": "scatter",
+    "assetId": "asset.forest",
+    "candidateCount": 15,
+    "scalePermille": 430,
+    "originY": 0.85,
+    "densitySteps": [
+      {
+        "min": 300,
+        "count": 6
+      },
+      {
+        "min": 500,
+        "count": 9
+      },
+      {
+        "min": 700,
+        "count": 15
+      }
+    ]
+  }
+}

@@ -2,6 +2,7 @@ node_modules/
 dist/
 data/
 /world/
+/server-data/
 /.removed-world-and-biome-*/
 /.removed-world-before-placement-*/
 .env
@@ -10,3 +11,4 @@ data/
 playwright-report/
 test-results/
 coverage/
+/.playwright-cli

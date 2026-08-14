@@ -1,16 +1,16 @@
 import { useTranslation } from 'react-i18next';
-import type { WorldHex, WorldMapResponse } from '@arcanorum/shared';
+import type { WorldBaseResponse, WorldHex } from '@arcanorum/shared';
 
 type HexTooltipProps = {
   readonly hex: WorldHex;
-  readonly world: WorldMapResponse;
+  readonly world: WorldBaseResponse;
 };
 
 export function HexTooltip({ hex, world }: HexTooltipProps) {
   const { i18n, t } = useTranslation();
   const number = new Intl.NumberFormat(i18n.language);
-  const landmass = world.map.landmasses.find((candidate) => candidate.id === hex.landmassId);
-  const waterBody = world.map.waterBodies.find((candidate) => candidate.id === hex.waterBodyId);
+  const landmass = world.landmasses.find((candidate) => candidate.id === hex.landmassId);
+  const waterBody = world.waterBodies.find((candidate) => candidate.id === hex.waterBodyId);
 
   return (
     <aside className="hex-tooltip" aria-live="polite" aria-label={t('game.hex.ariaLabel')} role="status">

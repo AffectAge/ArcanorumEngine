@@ -1,0 +1,35 @@
+{
+  "id": "feature.mountain",
+  "layerId": "layer.relief",
+  "priority": 10,
+  "when": {
+    "all": [
+      {
+        "fact": "hex.terrain_role",
+        "operator": "eq",
+        "value": "land"
+      },
+      {
+        "fact": "environment.mountain_strength",
+        "operator": "gte",
+        "value": 1
+      },
+      {
+        "fact": "hex.elevation",
+        "operator": "gte",
+        "value": 750
+      }
+    ]
+  },
+  "intensity": {
+    "type": "fact",
+    "fact": "environment.mountain_strength"
+  },
+  "renderer": {
+    "type": "sprite",
+    "assetId": "asset.mountain",
+    "scalePermille": 850,
+    "offsetY": 0,
+    "originY": 0.85
+  }
+}

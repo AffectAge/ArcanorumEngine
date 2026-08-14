@@ -1,0 +1,37 @@
+{
+  "id": "feature.snow_mountain",
+  "layerId": "layer.relief",
+  "priority": 20,
+  "when": {
+    "all": [
+      {
+        "fact": "environment.mountain_strength",
+        "operator": "gte",
+        "value": 1
+      },
+      {
+        "fact": "environment.snow_coverage",
+        "operator": "gte",
+        "value": 650
+      },
+      {
+        "fact": "hex.elevation",
+        "operator": "gte",
+        "value": 750
+      }
+    ]
+  },
+  "intensity": {
+    "type": "fact",
+    "fact": "environment.snow_coverage"
+  },
+  "renderer": {
+    "type": "sprite",
+    "assetId": "asset.mountain",
+    "scalePermille": 1000,
+    "offsetY": 0,
+    "originY": 0.85,
+    "alphaPermille": 1000,
+    "tint": 15136245
+  }
+}

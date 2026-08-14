@@ -1,0 +1,19 @@
+{
+  "id": "environment.lowlandness",
+  "expression": {
+    "type": "subtract",
+    "left": {
+      "type": "constant",
+      "value": 1000
+    },
+    "right": {
+      "type": "remap",
+      "value": {
+        "type": "fact",
+        "fact": "hex.elevation"
+      },
+      "inputMin": 560,
+      "inputMax": 800
+    }
+  }
+}

@@ -40,6 +40,7 @@ export const resources = {
           UNAUTHENTICATED: 'Your session has ended. Sign in again.',
           FORBIDDEN: 'This request was rejected for security reasons.',
           NOT_FOUND: 'The requested resource was not found.',
+          COMMAND_REJECTED: 'The game command is no longer valid. Refresh the game state and try again.',
           INTERNAL_ERROR: 'The server could not complete this request. Try again.',
         },
       },
@@ -143,6 +144,8 @@ export const resources = {
           UNAUTHENTICATED: 'Сессия завершена. Войдите снова.',
           FORBIDDEN: 'Запрос отклонён по соображениям безопасности.',
           NOT_FOUND: 'Запрошенный ресурс не найден.',
+          COMMAND_REJECTED:
+            'Игровая команда больше недействительна. Обновите состояние игры и повторите попытку.',
           INTERNAL_ERROR: 'Сервер не смог выполнить запрос. Попробуйте ещё раз.',
         },
       },

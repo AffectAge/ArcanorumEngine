@@ -1,0 +1,16 @@
+{
+  "id": "environment.swamp_potential",
+  "expression": {
+    "type": "multiply",
+    "values": [
+      {
+        "type": "fact",
+        "fact": "environment.wetness"
+      },
+      {
+        "type": "fact",
+        "fact": "environment.lowlandness"
+      }
+    ]
+  }
+}

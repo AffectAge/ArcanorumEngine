@@ -1,5 +1,10 @@
 import { afterEach, describe, expect, it } from 'vitest';
+import { mkdtempSync, rmSync } from 'node:fs';
+import type { AddressInfo } from 'node:net';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import type { FastifyInstance } from 'fastify';
+import { WebSocket } from 'ws';
 import { createApp } from './app.js';
 import type { ServerConfig } from './config.js';
 
@@ -8,6 +13,7 @@ const TEST_CONFIG: ServerConfig = {
   port: 3000,
   bindHost: '127.0.0.1',
   allowedOrigins: ['http://localhost:5173'],
+  accountsPath: ':memory:',
   worldPath: ':memory:',
   worldAutoCreate: true,
   worldName: 'Test world',
@@ -106,9 +112,9 @@ describe('authentication API', () => {
     expect(response.headers['set-cookie']).not.toContain('Max-Age');
   });
 
-  it('serves the persisted generated world only to an authenticated player', async () => {
+  it('serves world geometry as authenticated chunks and keeps mutable state separate', async () => {
     app = await createApp({ config: TEST_CONFIG });
-    const unauthenticated = await app.inject({ method: 'GET', url: '/api/world/map' });
+    const unauthenticated = await app.inject({ method: 'GET', url: '/api/world/base' });
     expect(unauthenticated.statusCode).toBe(401);
 
     const registrationResponse = await app.inject({
@@ -119,7 +125,7 @@ describe('authentication API', () => {
     });
     const worldResponse = await app.inject({
       method: 'GET',
-      url: '/api/world/map',
+      url: '/api/world/base',
       headers: { cookie: cookieHeader(registrationResponse.headers['set-cookie']) },
     });
 
@@ -127,15 +133,158 @@ describe('authentication API', () => {
     expect(worldResponse.json()).toMatchObject({
       worldName: 'Test world',
       seed: 'test-seed',
-      map: {
+      geometry: {
         width: 384,
         height: 256,
-        hexes: expect.any(Array),
-        rivers: expect.any(Array),
+        visuals: {
+          features: expect.arrayContaining([
+            expect.objectContaining({ id: 'feature.mountain' }),
+            expect.objectContaining({ id: 'feature.forest' }),
+          ]),
+        },
       },
     });
-    expect(worldResponse.json().map.hexes).toHaveLength(384 * 256);
-    expect(worldResponse.json().map.rivers.length).toBeGreaterThan(0);
+    expect(worldResponse.json().geometry.hexes).toBeUndefined();
+
+    const chunkResponse = await app.inject({
+      method: 'GET',
+      url: '/api/world/chunks/0/0',
+      headers: { cookie: cookieHeader(registrationResponse.headers['set-cookie']) },
+    });
+    expect(chunkResponse.statusCode).toBe(200);
+    expect(chunkResponse.json().chunk.hexes).toHaveLength(32 * 32);
+    expect(chunkResponse.json().chunk.visualNeighbors.length).toBeGreaterThan(0);
+
+    const snapshotResponse = await app.inject({
+      method: 'GET',
+      url: '/api/game/snapshot',
+      headers: { cookie: cookieHeader(registrationResponse.headers['set-cookie']) },
+    });
+    expect(snapshotResponse.statusCode).toBe(200);
+    expect(snapshotResponse.json()).toMatchObject({ turn: 1, eventSequence: 0 });
+  });
+
+  it('advances only joined world players through a validated command and persists its event delta', async () => {
+    app = await createApp({ config: TEST_CONFIG });
+    const registrationResponse = await app.inject({
+      method: 'POST',
+      url: '/api/auth/register',
+      headers: originHeaders,
+      payload: registration,
+    });
+    const unjoinedRegistration = await app.inject({
+      method: 'POST',
+      url: '/api/auth/register',
+      headers: originHeaders,
+      payload: {
+        ...registration,
+        login: 'Player_Not_Joined',
+        countryName: 'Независимая Республика',
+      },
+    });
+    expect(unjoinedRegistration.statusCode).toBe(201);
+    const cookie = cookieHeader(registrationResponse.headers['set-cookie']);
+    await joinWorld(app, cookie);
+    const commandResponse = await app.inject({
+      method: 'POST',
+      url: '/api/game/commands',
+      headers: { ...originHeaders, cookie },
+      payload: { type: 'END_TURN', turn: 1, clientSequence: 0 },
+    });
+
+    expect(commandResponse.statusCode).toBe(200);
+    expect(commandResponse.json()).toEqual({
+      accepted: true,
+      turn: 2,
+      eventSequence: 1,
+      awaitingPlayers: 0,
+    });
+
+    const snapshotResponse = await app.inject({
+      method: 'GET',
+      url: '/api/game/snapshot',
+      headers: { cookie },
+    });
+    expect(snapshotResponse.json()).toMatchObject({ turn: 2, eventSequence: 1 });
+  });
+
+  it('resolves a WEGO turn only after every registered player submitted an end-turn command', async () => {
+    app = await createApp({ config: TEST_CONFIG });
+    const firstRegistration = await app.inject({
+      method: 'POST',
+      url: '/api/auth/register',
+      headers: originHeaders,
+      payload: registration,
+    });
+    const secondRegistration = await app.inject({
+      method: 'POST',
+      url: '/api/auth/register',
+      headers: originHeaders,
+      payload: {
+        ...registration,
+        login: 'Player_Two',
+        countryName: 'Вторая Республика',
+      },
+    });
+    const firstCookie = cookieHeader(firstRegistration.headers['set-cookie']);
+    const secondCookie = cookieHeader(secondRegistration.headers['set-cookie']);
+    await joinWorld(app, firstCookie);
+    await joinWorld(app, secondCookie);
+
+    const firstCommand = await app.inject({
+      method: 'POST',
+      url: '/api/game/commands',
+      headers: { ...originHeaders, cookie: firstCookie },
+      payload: { type: 'END_TURN', turn: 1, clientSequence: 0 },
+    });
+    expect(firstCommand.statusCode).toBe(200);
+    expect(firstCommand.json()).toEqual({
+      accepted: true,
+      turn: 1,
+      eventSequence: 0,
+      awaitingPlayers: 1,
+    });
+
+    const secondCommand = await app.inject({
+      method: 'POST',
+      url: '/api/game/commands',
+      headers: { ...originHeaders, cookie: secondCookie },
+      payload: { type: 'END_TURN', turn: 1, clientSequence: 0 },
+    });
+    expect(secondCommand.statusCode).toBe(200);
+    expect(secondCommand.json()).toEqual({
+      accepted: true,
+      turn: 2,
+      eventSequence: 1,
+      awaitingPlayers: 0,
+    });
+  });
+
+  it('sends an authenticated WebSocket client an authoritative game snapshot', async () => {
+    app = await createApp({ config: TEST_CONFIG });
+    const registrationResponse = await app.inject({
+      method: 'POST',
+      url: '/api/auth/register',
+      headers: originHeaders,
+      payload: registration,
+    });
+    await app.listen({ port: 0, host: '127.0.0.1' });
+    const address = app.server.address();
+    if (address === null || typeof address === 'string') {
+      throw new Error('Test server did not expose a TCP address.');
+    }
+
+    const message = await readSocketMessage(
+      new WebSocket(`ws://127.0.0.1:${(address as AddressInfo).port}/api/game/events`, {
+        origin: TEST_CONFIG.allowedOrigins[0],
+        headers: { cookie: cookieHeader(registrationResponse.headers['set-cookie']) },
+      }),
+    );
+
+    expect(message).toMatchObject({
+      type: 'game.snapshot',
+      snapshot: { worldName: 'Test world', turn: 1, eventSequence: 0 },
+    });
   });
 
   it('rejects duplicate country names using their normalized identity', async () => {
@@ -314,7 +463,67 @@ describe('authentication API', () => {
     expect(limited.statusCode).toBe(429);
     expect(limited.json()).toEqual({ error: { code: 'TOO_MANY_ATTEMPTS' } });
   });
+
+  it('keeps accounts and country names after the world directory is deleted', async () => {
+    const storageRoot = mkdtempSync(join(tmpdir(), 'arcanorum-account-storage-'));
+    const persistentConfig: ServerConfig = {
+      ...TEST_CONFIG,
+      accountsPath: join(storageRoot, 'server-data', 'accounts.sqlite'),
+      worldPath: join(storageRoot, 'world'),
+    };
+
+    try {
+      app = await createApp({ config: persistentConfig });
+      const registrationResponse = await app.inject({
+        method: 'POST',
+        url: '/api/auth/register',
+        headers: originHeaders,
+        payload: registration,
+      });
+      expect(registrationResponse.statusCode).toBe(201);
+      await app.close();
+      app = undefined;
+
+      rmSync(persistentConfig.worldPath, { force: true, recursive: true });
+
+      app = await createApp({ config: persistentConfig });
+      const loginResponse = await app.inject({
+        method: 'POST',
+        url: '/api/auth/login',
+        headers: originHeaders,
+        payload: { login: registration.login, password: registration.password, rememberMe: false },
+      });
+      expect(loginResponse.statusCode).toBe(200);
+      expect(loginResponse.json()).toEqual({
+        player: { login: registration.login, countryName: registration.countryName },
+      });
+
+      const cookie = cookieHeader(loginResponse.headers['set-cookie']);
+      const joinResponse = await app.inject({
+        method: 'POST',
+        url: '/api/game/join',
+        headers: { ...originHeaders, cookie },
+      });
+      expect(joinResponse.statusCode).toBe(200);
+      expect(joinResponse.json()).toMatchObject({
+        player: { login: registration.login, countryName: registration.countryName },
+      });
+    } finally {
+      await app?.close();
+      app = undefined;
+      rmSync(storageRoot, { force: true, recursive: true });
+    }
+  });
 });
+
+async function joinWorld(app: FastifyInstance, cookie: string): Promise<void> {
+  const response = await app.inject({
+    method: 'POST',
+    url: '/api/game/join',
+    headers: { ...originHeaders, cookie },
+  });
+  expect(response.statusCode).toBe(200);
+}
 
 function cookieHeader(setCookie: string | string[] | undefined): string {
   const value = Array.isArray(setCookie) ? setCookie[0] : setCookie;
@@ -322,4 +531,26 @@ function cookieHeader(setCookie: string | string[] | undefined): string {
     throw new Error('Expected a session cookie.');
   }
   return value.split(';')[0] ?? value;
+}
+
+function readSocketMessage(socket: WebSocket): Promise<unknown> {
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      socket.terminate();
+      reject(new Error('Timed out waiting for a game socket message.'));
+    }, 3_000);
+    socket.once('message', (data) => {
+      clearTimeout(timeout);
+      socket.close();
+      try {
+        resolve(JSON.parse(String(data)));
+      } catch (error) {
+        reject(error);
+      }
+    });
+    socket.once('error', (error) => {
+      clearTimeout(timeout);
+      reject(error);
+    });
+  });
 }

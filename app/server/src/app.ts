@@ -6,17 +6,24 @@ import fastifyStatic from '@fastify/static';
 import { type AuthErrorResponse } from '@arcanorum/shared';
 import { AuthRepository } from './auth-repository.js';
 import { AuthService, toAuthSuccessResponse } from './auth-service.js';
+import { initializeAccountDatabase, openAccountDatabase } from './accounts/database.js';
 import type { ServerConfig } from './config.js';
-import { openDatabase, type SqliteDatabase } from './database.js';
+import type { SqliteDatabase } from './database.js';
 import { AuthHttpError } from './errors.js';
 import { AuthRateLimiter } from './rate-limiter.js';
 import { clearSessionCookie, getSessionCookieName, setSessionCookie } from './session-service.js';
+import { GameService } from './game/game-service.js';
+import { GameCommandService } from './game/command-service.js';
+import { attachGameSocket } from './game/socket-server.js';
 import { prepareWorld, WorldService } from './world/service.js';
+import { initializeWorldDatabase, openWorldDatabase } from './world/database.js';
 import { loadTerrainCatalog } from './world/terrain-catalog.js';
+import { loadVisualCatalog } from './world/visual-catalog.js';
 
 export type CreateAppOptions = {
   readonly config: ServerConfig;
-  readonly database?: SqliteDatabase;
+  readonly accountDatabase?: SqliteDatabase;
+  readonly worldDatabase?: SqliteDatabase;
   readonly now?: () => number;
 };
 
@@ -26,13 +33,25 @@ export async function createApp(options: CreateAppOptions): Promise<FastifyInsta
     bodyLimit: 16 * 1024,
   });
   const terrainCatalog = loadTerrainCatalog();
+  const visualCatalog = loadVisualCatalog();
   const preparedWorld = prepareWorld(options.config, terrainCatalog);
-  const database = options.database ?? openDatabase(preparedWorld.databasePath);
-  const worldService = new WorldService(database, preparedWorld, terrainCatalog);
+  const accountDatabase = options.accountDatabase ?? openAccountDatabase(options.config.accountsPath);
+  if (options.accountDatabase !== undefined) {
+    initializeAccountDatabase(accountDatabase);
+  }
+  const worldDatabase = options.worldDatabase ?? openWorldDatabase(preparedWorld.databasePath);
+  if (options.worldDatabase !== undefined) {
+    initializeWorldDatabase(worldDatabase);
+  }
+  const worldService = new WorldService(worldDatabase, preparedWorld, terrainCatalog, visualCatalog);
   worldService.initialize();
+  const worldBase = worldService.getBase();
+  const gameService = new GameService(worldDatabase, worldBase);
+  gameService.initialize();
+  const gameCommandService = new GameCommandService(gameService);
   const now = options.now ?? currentEpochSeconds;
-  const repository = new AuthRepository(database);
-  const rateLimiter = new AuthRateLimiter(database, options.config.rateLimitHmacSecret);
+  const repository = new AuthRepository(accountDatabase);
+  const rateLimiter = new AuthRateLimiter(accountDatabase, options.config.rateLimitHmacSecret);
   const authService = await AuthService.create(options.config, repository, rateLimiter);
 
   await app.register(cookie);
@@ -41,7 +60,12 @@ export async function createApp(options: CreateAppOptions): Promise<FastifyInsta
   });
 
   app.addHook('onClose', () => {
-    database.close();
+    if (options.worldDatabase === undefined) {
+      worldDatabase.close();
+    }
+    if (options.accountDatabase === undefined) {
+      accountDatabase.close();
+    }
   });
 
   app.addHook('preHandler', async (request) => {
@@ -74,9 +98,44 @@ export async function createApp(options: CreateAppOptions): Promise<FastifyInsta
     return reply.send(toAuthSuccessResponse(session.profile));
   });
 
-  app.get('/api/world/map', async (request, reply) => {
+  app.get('/api/world/base', async (request, reply) => {
     authService.getActiveSession(request.cookies[getSessionCookieName(options.config)], now());
-    return reply.send(worldService.getMap());
+    return reply.send(worldBase);
+  });
+
+  app.get('/api/world/chunks/:chunkQ/:chunkR', async (request, reply) => {
+    authService.getActiveSession(request.cookies[getSessionCookieName(options.config)], now());
+    const { chunkQ, chunkR } = request.params as { readonly chunkQ: string; readonly chunkR: string };
+    const parsedChunkQ = Number(chunkQ);
+    const parsedChunkR = Number(chunkR);
+    if (!Number.isInteger(parsedChunkQ) || !Number.isInteger(parsedChunkR)) {
+      return reply.status(400).send({ error: { code: 'VALIDATION_ERROR' } });
+    }
+    return reply.send(worldService.getChunk(parsedChunkQ, parsedChunkR));
+  });
+
+  app.get('/api/game/snapshot', async (request, reply) => {
+    const session = authService.getActiveSession(
+      request.cookies[getSessionCookieName(options.config)],
+      now(),
+    );
+    return reply.send(gameService.getSnapshot(session.profile));
+  });
+
+  app.post('/api/game/join', async (request, reply) => {
+    const session = authService.getActiveSession(
+      request.cookies[getSessionCookieName(options.config)],
+      now(),
+    );
+    return reply.send(gameService.joinPlayer(session.playerId, session.profile));
+  });
+
+  app.post('/api/game/commands', async (request, reply) => {
+    const session = authService.getActiveSession(
+      request.cookies[getSessionCookieName(options.config)],
+      now(),
+    );
+    return reply.send(gameCommandService.execute(session.playerId, request.body));
   });
 
   app.post('/api/auth/logout', async (request, reply) => {
@@ -116,6 +175,8 @@ export async function createApp(options: CreateAppOptions): Promise<FastifyInsta
     app.log.error({ err: error }, 'Unhandled server error');
     return reply.status(500).send({ error: { code: 'INTERNAL_ERROR' } });
   });
+
+  attachGameSocket(app, options.config, authService, gameService, now);
 
   return app;
 }

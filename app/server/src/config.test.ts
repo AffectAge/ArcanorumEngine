@@ -15,6 +15,9 @@ const VALID_SERVER_CONFIGURATION = ServerConfigurationSchema.parse({
     bindHost: '127.0.0.1',
     allowedOrigins: ['http://localhost:5173'],
   },
+  accounts: {
+    path: './server-data/accounts.sqlite',
+  },
   world: {
     path: './world',
     autoCreate: true,
@@ -80,9 +83,11 @@ const VALID_SERVER_CONFIGURATION = ServerConfigurationSchema.parse({
 });
 
 describe('server configuration', () => {
-  it('resolves the world path independently of the workspace process directory', () => {
+  it('resolves account and world paths independently of the workspace process directory', () => {
     const config = parseServerConfig(VALID_ENVIRONMENT, VALID_SERVER_CONFIGURATION);
 
+    expect(isAbsolute(config.accountsPath)).toBe(true);
+    expect(config.accountsPath).toMatch(/[\\/]server-data[\\/]accounts\.sqlite$/);
     expect(isAbsolute(config.worldPath)).toBe(true);
     expect(config.worldPath).toMatch(/[\\/]world$/);
     expect(config.staticClientDir).toBeUndefined();

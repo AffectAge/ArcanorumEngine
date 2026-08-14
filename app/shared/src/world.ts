@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { WorldVisualCatalogSchema } from './world-visual.js';
 
 const StableIdSchema = z.string().regex(/^[a-z][a-z0-9_]*(?:\.[a-z0-9_]+)+$/);
 
@@ -198,35 +199,80 @@ export const WorldGenerationDiagnosticsSchema = z
 
 export type WorldGenerationDiagnostics = z.infer<typeof WorldGenerationDiagnosticsSchema>;
 
-export const WorldMapResponseSchema = z
+export const WorldGeometrySchema = z
+  .object({
+    width: z.number().int().positive(),
+    height: z.number().int().positive(),
+    staggerAxis: z.literal('x'),
+    staggerIndex: z.literal('odd'),
+    hexSideLength: z.number().int().positive(),
+    terrain: TerrainCatalogSchema,
+    visuals: WorldVisualCatalogSchema,
+  })
+  .strict();
+
+export type WorldGeometry = z.infer<typeof WorldGeometrySchema>;
+
+export const WorldBaseResponseSchema = z
   .object({
     worldName: z.string().min(1),
     seed: z.string().min(1),
-    map: z
-      .object({
-        width: z.number().int().positive(),
-        height: z.number().int().positive(),
-        staggerAxis: z.literal('x'),
-        staggerIndex: z.literal('odd'),
-        hexSideLength: z.number().int().positive(),
-        terrain: TerrainCatalogSchema,
-        hexes: z.array(WorldHexSchema).min(1),
-        rivers: z.array(WorldRiverEdgeSchema),
-        landmasses: z.array(WorldLandmassSchema),
-        waterBodies: z.array(WorldWaterBodySchema),
-        diagnostics: WorldGenerationDiagnosticsSchema,
-      })
-      .strict(),
+    geometryRevision: z.string().regex(/^[a-f0-9]{64}$/),
+    chunkWidth: z.number().int().positive(),
+    chunkHeight: z.number().int().positive(),
+    geometry: WorldGeometrySchema,
+    landmasses: z.array(WorldLandmassSchema),
+    waterBodies: z.array(WorldWaterBodySchema),
+    diagnostics: WorldGenerationDiagnosticsSchema,
+  })
+  .strict();
+
+export type WorldBaseResponse = z.infer<typeof WorldBaseResponseSchema>;
+
+export const WorldGeometryChunkSchema = z
+  .object({
+    chunkQ: z.number().int().nonnegative(),
+    chunkR: z.number().int().nonnegative(),
+    originQ: z.number().int().nonnegative(),
+    originR: z.number().int().nonnegative(),
+    width: z.number().int().positive(),
+    height: z.number().int().positive(),
+    hexes: z.array(WorldHexSchema).min(1),
+    /** One-hex non-rendered halo used only by visual rules that inspect neighbors. */
+    visualNeighbors: z.array(WorldHexSchema),
+    rivers: z.array(WorldRiverEdgeSchema),
   })
   .strict()
-  .superRefine((response, context) => {
-    if (response.map.hexes.length !== response.map.width * response.map.height) {
+  .superRefine((chunk, context) => {
+    if (chunk.hexes.length !== chunk.width * chunk.height) {
       context.addIssue({
         code: z.ZodIssueCode.custom,
-        message: 'Hex count does not match map dimensions.',
-        path: ['map', 'hexes'],
+        message: 'Hex count does not match chunk dimensions.',
+        path: ['hexes'],
       });
+    }
+    const coordinates = new Set<string>();
+    for (const hex of [...chunk.hexes, ...chunk.visualNeighbors]) {
+      const coordinate = `${hex.q}:${hex.r}`;
+      if (coordinates.has(coordinate)) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `Duplicate visual context hex: ${coordinate}.`,
+          path: ['visualNeighbors'],
+        });
+      }
+      coordinates.add(coordinate);
     }
   });
 
-export type WorldMapResponse = z.infer<typeof WorldMapResponseSchema>;
+export type WorldGeometryChunk = z.infer<typeof WorldGeometryChunkSchema>;
+
+export const WorldChunkResponseSchema = z
+  .object({
+    worldName: z.string().min(1),
+    geometryRevision: z.string().regex(/^[a-f0-9]{64}$/),
+    chunk: WorldGeometryChunkSchema,
+  })
+  .strict();
+
+export type WorldChunkResponse = z.infer<typeof WorldChunkResponseSchema>;

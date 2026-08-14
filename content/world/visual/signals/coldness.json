@@ -1,0 +1,14 @@
+{
+  "id": "environment.coldness",
+  "expression": {
+    "type": "subtract",
+    "left": {
+      "type": "constant",
+      "value": 1000
+    },
+    "right": {
+      "type": "fact",
+      "fact": "hex.temperature"
+    }
+  }
+}
