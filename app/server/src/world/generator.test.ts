@@ -18,7 +18,9 @@ const GENERATION_CONFIG: WorldGenerationConfig = {
     coastRoughness: 0.45,
     coastalWaterWidth: 1,
     seaMinimumHexes: 10,
-    seaEnclosureThreshold: 2,
+    seaMaximumMouthWidth: 8,
+    seaMinimumDepth: 3,
+    seaMinimumEnclosure: 0.4,
   },
   tectonics: {
     plateCount: 10,

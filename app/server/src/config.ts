@@ -23,7 +23,9 @@ export const WorldGenerationSchema = z
         coastRoughness: z.number().min(0).max(1),
         coastalWaterWidth: z.number().int().min(1).max(3),
         seaMinimumHexes: z.number().int().min(6).max(20_000),
-        seaEnclosureThreshold: z.number().int().min(1).max(6),
+        seaMaximumMouthWidth: z.number().int().min(1).max(32),
+        seaMinimumDepth: z.number().int().min(1).max(64),
+        seaMinimumEnclosure: z.number().min(0).max(1),
       })
       .strict(),
     tectonics: z

@@ -8,6 +8,7 @@ export type CompiledWorldGenerationConfig = {
   readonly coastRoughnessPermille: number;
   readonly riftStrengthPermille: number;
   readonly islandFrequencyPermille: number;
+  readonly seaMinimumEnclosurePermille: number;
   readonly elevationCoolingPermille: number;
   readonly maximumLakeHexes: number;
   readonly minimumLandmassHexes: number;
@@ -36,6 +37,7 @@ export function compileWorldGenerationConfig(source: WorldGenerationConfig): Com
     coastRoughnessPermille: Math.round(source.topology.coastRoughness * 1000),
     riftStrengthPermille: Math.round(source.topology.riftStrength * 1000),
     islandFrequencyPermille: Math.round(source.topology.islandFrequency * 1000),
+    seaMinimumEnclosurePermille: Math.round(source.topology.seaMinimumEnclosure * 1000),
     elevationCoolingPermille: Math.round(source.climate.elevationCooling * 1000),
     maximumLakeHexes: Math.floor(totalHexes * source.hydrology.maximumLakeCoverage),
     minimumLandmassHexes: Math.max(2, Math.floor(Math.sqrt(totalHexes) / 64)),

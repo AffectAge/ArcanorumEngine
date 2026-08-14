@@ -1,14 +1,15 @@
-# World generation pipeline v3
+# World generation pipeline v4
 
 `app/server/src/world/generation/pipeline.ts` is the authoritative orchestration entry point.
 Generation is deterministic and does not import persistence, Phaser, React, Zustand, clocks, or
 ambient randomness. The public hex, landmass, water-body, and river-edge contracts remain unchanged.
 
-Version 3 replaces exact continent/island counts and per-component area quotas with an emergent,
-Civilization-style global land field. `landCoverage` is a world-scale target; the number, sizes, and
-shapes of connected landmasses are outcomes. A fixed number of candidates is always generated and
-the best-scoring candidate is selected. There is no unbounded retry loop and no seed-dependent
-"cannot find a suitable island/continent hex" failure.
+Version 4 retains the emergent, Civilization-style global land field introduced in version 3 and
+replaces the local marginal-sea heuristic with a deterministic, multi-scale basin-mouth classifier.
+`landCoverage` is a world-scale target; the number, sizes, and shapes of connected landmasses and
+seas are outcomes. A fixed number of land candidates is always generated and the best-scoring
+candidate is selected. There is no unbounded retry loop and no seed-dependent "cannot find a
+suitable island/continent hex" failure.
 
 ## Deterministic inputs and completion contract
 
@@ -43,6 +44,7 @@ The Zod boundary validates field ranges and cross-field relationships. The compi
 - target global land area;
 - protected-ocean interior capacity;
 - fixed-point tectonic activity, coast roughness, rift strength, island frequency, and lapse rate;
+- fixed-point minimum marginal-sea enclosure;
 - maximum natural-lake area; and
 - a map-size-derived micro-land cutoff.
 
@@ -143,7 +145,24 @@ A depression becomes a lake only when:
 - selected lake area remains within `maximumLakeCoverage`.
 
 Lake count, size, and placement are emergent. Marginal seas remain parts of the boundary-connected
-ocean and are classified from enclosure/openness rather than circular carving.
+ocean; classification never changes the land/water mask.
+
+For marginal seas, a multi-source graph-distance pass first measures each ocean hex's clearance from
+dry land. The classifier then evaluates every temporary coastal-closure radius from one hex through
+`ceil(seaMaximumMouthWidth / 2)`:
+
+1. ocean hexes within the current radius of land are temporarily removed from the traversable core;
+2. surviving cores touching the protected outer-ocean band remain outer-ocean sources;
+3. surviving cores cut off behind the temporary closure become basin sources;
+4. the original ocean is reconstructed by nearest-core graph distance, with outer ocean winning
+   equal-distance ties and row-major component identity breaking all remaining ties; and
+5. a reconstructed basin is accepted only when its area, mouth width, graph depth from the mouth,
+   and land-boundary enclosure pass the configured thresholds.
+
+Accepted masks from all bounded scales are combined, connected, and assigned stable `water.sea.N`
+IDs by their first row-major hex. A scale with no surviving outer-ocean core is skipped rather than
+failing generation. This recognizes the complete open interior of a bay behind a narrow entrance;
+individual sea hexes do not need to touch land.
 
 ### 8. Recalculate climate with inland water
 
@@ -194,24 +213,36 @@ Styles change scoring and field weights; none specifies an exact component count
 
 ## Configuration groups
 
-| Group       | Controls                                                                                                                   |
-| ----------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `topology`  | style, global land coverage, candidate count, grain, rifts, island frequency, margins, coast roughness, sea classification |
-| `tectonics` | plate count/activity, boundary falloff, uplift, trenches, rifts, hotspots                                                  |
-| `relief`    | sea level, continental height, ocean depth, shelf, regional/detail scales                                                  |
-| `climate`   | equator/pole temperatures, lapse rate, winds, moisture transport, orographic rain, evaporation                             |
-| `hydrology` | natural-lake limits, river threshold, erosion passes, incision bounds                                                      |
+| Group       | Controls                                                                                                                               |
+| ----------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `topology`  | style, global land coverage, candidate count, grain, rifts, island frequency, margins, coast roughness, basin-mouth sea classification |
+| `tectonics` | plate count/activity, boundary falloff, uplift, trenches, rifts, hotspots                                                              |
+| `relief`    | sea level, continental height, ocean depth, shelf, regional/detail scales                                                              |
+| `climate`   | equator/pole temperatures, lapse rate, winds, moisture transport, orographic rain, evaporation                                         |
+| `hydrology` | natural-lake limits, river threshold, erosion passes, incision bounds                                                                  |
 
 Removed v2 settings are `continentCount`, `minimumContinentHexes`,
 `continentAreaVariation`, `waterGapWidth`, `majorIslandCount`, `islandLandFraction`, and
 `islandBufferWidth`. They represented output quotas rather than geographical processes.
 
+Marginal-sea topology settings are:
+
+| Setting                | Meaning                                                                                                                       |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `seaMinimumHexes`      | Minimum reconstructed basin area.                                                                                             |
+| `seaMaximumMouthWidth` | Widest accepted reconstructed connection to the outer ocean, in hexes. It also bounds the number of temporary closure scales. |
+| `seaMinimumDepth`      | Minimum graph distance from the reconstructed mouth to the deepest basin hex.                                                 |
+| `seaMinimumEnclosure`  | Minimum ratio of land-facing boundary edges to all land- and ocean-facing basin boundary edges.                               |
+
+The v3 setting `seaEnclosureThreshold` was removed because it classified individual coastal hexes
+instead of whole basins and fragmented broad bays.
+
 ## Persistence compatibility
 
-New `generation.json` snapshots contain `version: 3`. Unversioned, v2, malformed, or incomplete
+New `generation.json` snapshots contain `version: 4`. Unversioned, v2, v3, malformed, or incomplete
 snapshots are rejected before existing geometry is opened or regenerated. The server never silently
 changes the seed or topology settings of an existing world. Create a new empty world directory to
-use v3; older directories remain untouched.
+use v4; older directories remain untouched.
 
 ## Scientific and implementation basis
 

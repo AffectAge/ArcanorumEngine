@@ -33,7 +33,9 @@ const TEST_CONFIG: ServerConfig = {
       coastRoughness: 0.45,
       coastalWaterWidth: 1,
       seaMinimumHexes: 8,
-      seaEnclosureThreshold: 2,
+      seaMaximumMouthWidth: 8,
+      seaMinimumDepth: 3,
+      seaMinimumEnclosure: 0.4,
     },
     tectonics: {
       plateCount: 8,

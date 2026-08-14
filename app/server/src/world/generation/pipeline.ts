@@ -21,7 +21,7 @@ import { maximum } from './utils.js';
 
 export type { GeneratedWorld } from './types.js';
 
-/** Authoritative generation v3: candidate topology, geology, climate, then surface processes. */
+/** Authoritative generation v4: emergent topology, geology, climate, then surface processes. */
 export function generateWorld(
   seed: string,
   sourceConfiguration: WorldGenerationConfig,
@@ -80,8 +80,11 @@ export function generateWorld(
   appendStageDiagnostic(diagnostics, 'stage.climate_initial', cells);
 
   const lakeCount = formNaturalLakes(cells, grid, configuration);
-  classifyMarginalSeas(cells, grid, configuration, edgeDistance);
-  appendStageDiagnostic(diagnostics, 'stage.surface_water', cells, [`lakes:${lakeCount}`]);
+  const seaCount = classifyMarginalSeas(cells, grid, configuration, edgeDistance);
+  appendStageDiagnostic(diagnostics, 'stage.surface_water', cells, [
+    `lakes:${lakeCount}`,
+    `seas:${seaCount}`,
+  ]);
 
   calculateClimate(cells, grid, configuration, createStageNoise(seed, 'climate.moisture'));
   const hydrology = erodeAndRoute(cells, grid, configuration);

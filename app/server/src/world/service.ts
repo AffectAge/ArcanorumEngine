@@ -29,7 +29,7 @@ const WorldManifestSchema = z
 const WorldGenerationSnapshotSchema = z
   .object({
     format: z.literal('arcanorum-world-generation'),
-    version: z.literal(3),
+    version: z.literal(4),
     worldName: z.string().min(1),
     seed: z.string().min(1),
     terrainCatalogFingerprint: z.string().regex(/^[a-f0-9]{64}$/),
@@ -426,7 +426,7 @@ function createSnapshot(
 ): WorldGenerationSnapshot {
   return {
     format: 'arcanorum-world-generation',
-    version: 3,
+    version: 4,
     worldName: config.worldName,
     seed,
     terrainCatalogFingerprint: terrainCatalog.fingerprint,
@@ -441,10 +441,10 @@ function readGenerationSnapshot(filePath: string): WorldGenerationSnapshot {
     source !== null &&
     'format' in source &&
     source.format === 'arcanorum-world-generation' &&
-    (!('version' in source) || source.version !== 3)
+    (!('version' in source) || source.version !== 4)
   ) {
     throw new Error(
-      `World generation snapshot at ${filePath} predates emergent generator v3. The existing world was not modified; create a new world directory to use generator v3.`,
+      `World generation snapshot at ${filePath} is incompatible with basin-mouth generator v4. The existing world was not modified; create a new world directory to use generator v4.`,
     );
   }
   return WorldGenerationSnapshotSchema.parse(source);

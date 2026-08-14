@@ -38,7 +38,9 @@ const VALID_SERVER_CONFIGURATION = ServerConfigurationSchema.parse({
         coastRoughness: 0.45,
         coastalWaterWidth: 1,
         seaMinimumHexes: 8,
-        seaEnclosureThreshold: 2,
+        seaMaximumMouthWidth: 8,
+        seaMinimumDepth: 3,
+        seaMinimumEnclosure: 0.4,
       },
       tectonics: {
         plateCount: 8,
@@ -84,6 +86,31 @@ const VALID_SERVER_CONFIGURATION = ServerConfigurationSchema.parse({
 });
 
 describe('server configuration', () => {
+  it('rejects marginal-sea settings outside their validated ranges', () => {
+    const generation = VALID_SERVER_CONFIGURATION.world.generation;
+    const result = WorldGenerationSchema.safeParse({
+      ...generation,
+      topology: {
+        ...generation.topology,
+        seaMaximumMouthWidth: 33,
+        seaMinimumDepth: 0,
+        seaMinimumEnclosure: 1.1,
+      },
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const paths = result.error.issues.map((issue) => issue.path.join('.'));
+      expect(paths).toEqual(
+        expect.arrayContaining([
+          'topology.seaMaximumMouthWidth',
+          'topology.seaMinimumDepth',
+          'topology.seaMinimumEnclosure',
+        ]),
+      );
+    }
+  });
+
   it('rejects land coverage that cannot fit inside the protected ocean margin', () => {
     const generation = VALID_SERVER_CONFIGURATION.world.generation;
     const result = WorldGenerationSchema.safeParse({

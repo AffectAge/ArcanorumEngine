@@ -27,7 +27,9 @@
         "coastRoughness": 0.62,
         "coastalWaterWidth": 1,
         "seaMinimumHexes": 30,
-        "seaEnclosureThreshold": 3
+        "seaMaximumMouthWidth": 18,
+        "seaMinimumDepth": 6,
+        "seaMinimumEnclosure": 0.5
       },
       "tectonics": {
         "plateCount": 16,

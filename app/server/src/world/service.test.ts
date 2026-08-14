@@ -29,7 +29,7 @@ describe('world generation snapshots', () => {
     });
 
     expect(() => prepareWorld(createConfig(directory), terrainCatalog)).toThrow(
-      /predates emergent generator v3.*was not modified/u,
+      /incompatible with basin-mouth generator v4.*was not modified/u,
     );
   });
 
@@ -47,11 +47,11 @@ describe('world generation snapshots', () => {
     });
 
     expect(() => prepareWorld(createConfig(directory), terrainCatalog)).toThrow(
-      /predates emergent generator v3.*was not modified/u,
+      /incompatible with basin-mouth generator v4.*was not modified/u,
     );
   });
 
-  it('accepts a complete v3 snapshot for an existing world', () => {
+  it('rejects a v3 snapshot generated with the previous marginal-sea contract', () => {
     const directory = mkdtempSync(join(tmpdir(), 'arcanorum-world-v3-'));
     temporaryDirectories.push(directory);
     const terrainCatalog = loadTerrainCatalog();
@@ -64,9 +64,27 @@ describe('world generation snapshots', () => {
       generation: readServerConfiguration().world.generation,
     });
 
+    expect(() => prepareWorld(createConfig(directory), terrainCatalog)).toThrow(
+      /incompatible with basin-mouth generator v4.*was not modified/u,
+    );
+  });
+
+  it('accepts a complete v4 snapshot for an existing world', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'arcanorum-world-v4-'));
+    temporaryDirectories.push(directory);
+    const terrainCatalog = loadTerrainCatalog();
+    writeWorldFiles(directory, {
+      format: 'arcanorum-world-generation',
+      version: 4,
+      worldName: 'Versioned world',
+      seed: 'versioned-seed',
+      terrainCatalogFingerprint: terrainCatalog.fingerprint,
+      generation: readServerConfiguration().world.generation,
+    });
+
     const prepared = prepareWorld(createConfig(directory), terrainCatalog);
     expect(prepared.isNew).toBe(false);
-    expect(prepared.snapshot.version).toBe(3);
+    expect(prepared.snapshot.version).toBe(4);
   });
 });
 
