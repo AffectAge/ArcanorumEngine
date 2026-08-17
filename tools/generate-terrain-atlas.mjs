@@ -10,8 +10,9 @@ const chromePath =
 const browser = await chromium.launch(existsSync(chromePath) ? { executablePath: chromePath } : {});
 
 try {
-  const page = await browser.newPage({ viewport: { width: 480, height: 84 }, deviceScaleFactor: 1 });
-  await page.setContent(terrainAtlasSvg());
+  const page = await browser.newPage({ viewport: { width: 384, height: 672 }, deviceScaleFactor: 1 });
+  await page.setContent(terrainSurfaceAtlasHtml());
+  await page.waitForFunction(() => document.body.dataset.ready === 'true');
   await mkdir(dirname(terrainOutputPath), { recursive: true });
   await page.screenshot({
     path: terrainOutputPath,
@@ -31,49 +32,69 @@ try {
   await browser.close();
 }
 
-function terrainAtlasSvg() {
-  const terrainFrames = [
-    { fill: '#0b355d', highlight: '#317cac', pattern: 'waves-deep' },
-    { fill: '#087886', highlight: '#7bd5bf', pattern: 'waves-shallow' },
-    { fill: '#07556e', highlight: '#2d99a2', pattern: 'waves-sea' },
-    { fill: '#176fa7', highlight: '#72c8dc', pattern: 'waves-lake' },
-    { fill: '#4d6d33', highlight: '#9aaa57', pattern: 'land' },
+function terrainSurfaceAtlasHtml() {
+  const frameColors = [
+    '#123b5d',
+    '#2f8fa3',
+    '#1d6685',
+    '#3a89b8',
+    '#294d63',
+    '#7eaeb8',
+    '#557f92',
+    '#8eb8c5',
+    '#07547a',
+    '#28b5aa',
+    '#11869a',
+    '#50c5bc',
+    '#6f8f4a',
+    '#648343',
+    '#e6eee9',
+    '#d8e5e2',
+    '#87927b',
+    '#7b8772',
+    '#3f6443',
+    '#36583d',
+    '#aa9958',
+    '#9a8c50',
+    '#558052',
+    '#486f4a',
+    '#d9b46a',
+    '#c99a55',
+    '#b6a353',
+    '#a4964b',
+    '#34754a',
+    '#2c6842',
+    '#777873',
+    '#656966',
   ];
-  const frames = terrainFrames
-    .map(
-      (frame, index) => `
-        <g transform="translate(${index * 96},0)">
-          <polygon class="hex" points="24,0 72,0 96,42 72,84 24,84 0,42" fill="${frame.fill}" />
-          <polygon points="24,2 72,2 93,42 72,82 24,82 3,42" fill="url(#${frame.pattern})" opacity="0.48" />
-          <polygon points="24,1 72,1 95,42 72,83 24,83 1,42" fill="none" stroke="#08110b" stroke-width="2" />
-          <path d="M24 2H72L93 42" fill="none" stroke="${frame.highlight}" stroke-width="1" opacity="0.55" />
-        </g>`,
-    )
-    .join('');
 
   return `<!doctype html>
     <html><body style="margin:0;background:transparent;overflow:hidden">
-      <svg xmlns="http://www.w3.org/2000/svg" width="480" height="84" viewBox="0 0 480 84">
-        <defs>
-          <pattern id="waves-deep" width="18" height="12" patternUnits="userSpaceOnUse">
-            <path d="M0 7c4-5 8 5 12 0s5-2 6-3" fill="none" stroke="#317cac" stroke-width="1.25" opacity=".8"/>
-          </pattern>
-          <pattern id="waves-shallow" width="16" height="10" patternUnits="userSpaceOnUse">
-            <path d="M0 6c3-4 7 4 11 0s4-2 5-3" fill="none" stroke="#c4f3ce" stroke-width="1.15" opacity=".9"/>
-          </pattern>
-          <pattern id="waves-sea" width="20" height="14" patternUnits="userSpaceOnUse">
-            <path d="M0 8c5-6 10 6 15 0s4-3 5-4" fill="none" stroke="#2d99a2" stroke-width="1.2" opacity=".85"/>
-          </pattern>
-          <pattern id="waves-lake" width="14" height="11" patternUnits="userSpaceOnUse">
-            <path d="M0 7c4-3 7 3 11 0s2-2 3-2" fill="none" stroke="#b4e6ea" stroke-width="1.1" opacity=".85"/>
-          </pattern>
-          <pattern id="land" width="16" height="14" patternUnits="userSpaceOnUse">
-            <path d="M3 13l3-8 3 8M8 12l3-6 3 6" fill="none" stroke="#a9b96c" stroke-width="1.35" opacity=".85"/>
-            <circle cx="2" cy="3" r="1" fill="#303f25" opacity=".7"/>
-          </pattern>
-        </defs>
-        ${frames}
-      </svg>
+      <canvas width="384" height="672"></canvas>
+      <script>
+        const canvas = document.querySelector('canvas');
+        const context = canvas.getContext('2d');
+        const frameColors = ${JSON.stringify(frameColors)};
+        for (let frame = 0; frame < frameColors.length; frame += 1) {
+          const column = frame % 4;
+          const row = Math.floor(frame / 4);
+          context.save();
+          context.translate(column * 96, row * 84);
+          context.beginPath();
+          context.moveTo(23, -1);
+          context.lineTo(73, -1);
+          context.lineTo(97, 42);
+          context.lineTo(73, 85);
+          context.lineTo(23, 85);
+          context.lineTo(-1, 42);
+          context.closePath();
+          context.clip();
+          context.fillStyle = frameColors[frame];
+          context.fillRect(0, 0, 96, 84);
+          context.restore();
+        }
+        document.body.dataset.ready = 'true';
+      </script>
     </body></html>`;
 }
 

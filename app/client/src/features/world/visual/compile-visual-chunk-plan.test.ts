@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { WorldBaseResponseSchema, WorldGeometryChunkSchema } from '@arcanorum/shared';
+import { compileTerrainSurfacePlan } from './compile-terrain-surface-plan.js';
 import { compileVisualChunkPlan } from './compile-visual-chunk-plan.js';
 
 const world = WorldBaseResponseSchema.parse({
@@ -21,6 +22,7 @@ const world = WorldBaseResponseSchema.parse({
         frameWidth: 96,
         frameHeight: 84,
         columns: 5,
+        rows: 1,
       },
       terrainTypes: [
         { id: 'terrain.ocean', frame: 0, category: 'water', role: 'ocean' },
@@ -207,6 +209,23 @@ const world = WorldBaseResponseSchema.parse({
           },
         },
       ],
+      surfaces: [
+        {
+          id: 'surface.land.default',
+          priority: 0,
+          when: { all: [{ fact: 'hex.terrain_role', operator: 'eq', value: 'land' }] },
+          variants: [
+            { id: 'tile.land.default.01', frame: 3, weight: 1 },
+            { id: 'tile.land.default.02', frame: 4, weight: 1 },
+          ],
+        },
+        {
+          id: 'surface.water.default',
+          priority: 0,
+          when: { all: [{ fact: 'hex.terrain_role', operator: 'eq', value: 'water' }] },
+          variants: [{ id: 'tile.water.default', frame: 0, weight: 1 }],
+        },
+      ],
     },
   },
   landmasses: [],
@@ -334,3 +353,92 @@ describe('compileVisualChunkPlan', () => {
     ]);
   });
 });
+
+describe('compileTerrainSurfacePlan', () => {
+  it('selects one stable weighted surface variant per hex without changing world data', () => {
+    const first = compileTerrainSurfacePlan(world, chunk);
+    const second = compileTerrainSurfacePlan(world, chunk);
+
+    expect(second).toEqual(first);
+    expect(first.tiles.map((tile) => tile.surfaceId)).toEqual([
+      'surface.land.default',
+      'surface.land.default',
+      'surface.land.default',
+      'surface.water.default',
+    ]);
+    expect(first.tiles.every((tile) => tile.frame >= 0 && tile.frame < 5)).toBe(true);
+    expect(chunk.hexes.map((hex) => hex.terrainId)).toEqual([
+      'terrain.land',
+      'terrain.land',
+      'terrain.land',
+      'terrain.ocean',
+    ]);
+  });
+
+  it('lets a higher-priority biome surface override the explicit land default', () => {
+    const alpineWorld = worldWithSurfaces([
+      ...world.geometry.visuals.surfaces,
+      {
+        id: 'surface.land.alpine',
+        priority: 100,
+        when: {
+          all: [
+            { fact: 'hex.terrain_kind', operator: 'eq', value: 'land' },
+            { fact: 'hex.elevation', operator: 'gte', value: 800 },
+          ],
+        },
+        variants: [{ id: 'tile.land.alpine', frame: 2, weight: 1 }],
+      },
+    ]);
+
+    expect(compileTerrainSurfacePlan(alpineWorld, chunk).tiles[0]).toMatchObject({
+      surfaceId: 'surface.land.alpine',
+      variantId: 'tile.land.alpine',
+      frame: 2,
+    });
+  });
+
+  it('fails explicitly when the highest-priority surface is ambiguous or no surface matches', () => {
+    const competingSurface = {
+      id: 'surface.land.competing',
+      priority: 100,
+      when: {
+        all: [
+          { fact: 'hex.terrain_kind', operator: 'eq', value: 'land' },
+          { fact: 'hex.elevation', operator: 'gte', value: 800 },
+        ],
+      },
+      variants: [{ id: 'tile.land.competing', frame: 1, weight: 1 }],
+    };
+    const ambiguousWorld = worldWithSurfaces([
+      ...world.geometry.visuals.surfaces,
+      competingSurface,
+      {
+        ...competingSurface,
+        id: 'surface.land.competing_second',
+        variants: [{ id: 'tile.land.competing_second', frame: 2, weight: 1 }],
+      },
+    ]);
+    const missingWaterWorld = worldWithSurfaces(
+      world.geometry.visuals.surfaces.filter((surface) => surface.id !== 'surface.water.default'),
+    );
+
+    expect(() => compileTerrainSurfacePlan(ambiguousWorld, chunk)).toThrow(/ambiguous at hex 0:0/u);
+    expect(() => compileTerrainSurfacePlan(missingWaterWorld, chunk)).toThrow(
+      /No visual surface matches hex 1:1/u,
+    );
+  });
+});
+
+function worldWithSurfaces(surfaces: unknown): typeof world {
+  return WorldBaseResponseSchema.parse({
+    ...world,
+    geometry: {
+      ...world.geometry,
+      visuals: {
+        ...world.geometry.visuals,
+        surfaces,
+      },
+    },
+  });
+}

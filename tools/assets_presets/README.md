@@ -1,6 +1,6 @@
 # Arcanorum strategic hex-map visual presets
 
-These are original visual presets and copy-ready candidates. `terrain-atlas-preset-v5.webp` matches the current runtime terrain atlas contract.
+These are original visual presets and copy-ready candidates. The current runtime terrain atlas is generated as a flat-color palette by `tools/generate-terrain-atlas.mjs`.
 
 ## Files
 
@@ -12,7 +12,7 @@ These are original visual presets and copy-ready candidates. `terrain-atlas-pres
 - `terrain-features-presets-v2.png` — forest, mountains, rolling hills, dry scrubland, marsh, and snow-touched highland; intentionally contains no roads.
 - `river-atlas-preset-v3.webp` — copy-ready RGBA river overlay atlas, exactly `768×672`, arranged as `8×8` frames of `96×84`; transparent outside the river channels.
 - `river-atlas-preset-v3-preview.png` — QA preview of the same atlas composited over a neutral land color; do not copy this preview into the game.
-- `terrain-atlas-preset-v6.webp` — copy-ready RGBA terrain atlas, exactly `480×84`, arranged as five `96×84` frames in the order defined by `content/world/terrain-types.json`.
+- `terrain-atlas-preset-v6.webp` — legacy five-frame terrain candidate, exactly `480×84`.
 - `terrain-atlas-preset-v6-preview.png` — QA preview of the v6 terrain atlas; do not copy this preview into the game.
 
 ## Review notes
@@ -21,7 +21,7 @@ These are original visual presets and copy-ready candidates. `terrain-atlas-pres
 - The forest-with-road tile uses a visible ochre corridor and a deliberate tree setback on both sides. Treat this as a compositing rule: apply the road mask before placing tree clusters, or use a dedicated forest-with-road variant.
 - The river tile is shown over a dark neutral field to communicate an overlay layer; its blue is intentionally muted rather than neon.
 - `river-atlas-preset-v3.webp` contains only the river channels. It has no grass, terrain fill, roads, bridges, labels, or other features; it is intended to sit above the terrain atlas as an RGBA overlay.
-- `terrain-atlas-preset-v6.webp` contains only the five base terrain materials; roads, rivers, forests, and mountains remain separate layers.
+- The generated runtime terrain atlas is exactly `384×672`: four columns by eight rows of solid-color `96×84` frames, with transparent pixels outside every hex. It contains no patterns or painted details; roads, rivers, forests, and mountains remain separate layers.
 - The terrain sheet keeps each base terrain material self-contained and excludes roads/paths so infrastructure can remain a separate overlay system.
 - The v5 terrain atlas is runtime-sized and excludes roads, rivers, forests, mountains, and other overlays. Its hex corners are transparent.
 

@@ -1,6 +1,12 @@
 {
   "layers": ["layers/relief.json", "layers/wetland.json", "layers/vegetation.json"],
-  "assets": ["asset-sets/mountain.json", "asset-sets/forest.json", "asset-sets/swamp.json"],
+  "assets": [
+    "asset-sets/mountain.json",
+    "asset-sets/forest.json",
+    "asset-sets/forest-boreal.json",
+    "asset-sets/forest-tropical.json",
+    "asset-sets/swamp.json"
+  ],
   "signals": [
     "signals/mountain-strength.json",
     "signals/coldness.json",
@@ -15,6 +21,32 @@
     "features/relief/mountain.json",
     "features/relief/snow-mountain.json",
     "features/hydrology/swamp.json",
-    "features/vegetation/forest.json"
+    "features/vegetation/forest.json",
+    "features/vegetation/forest-boreal.json",
+    "features/vegetation/forest-tropical.json"
+  ],
+  "surfaces": [
+    "surfaces/water/ocean-temperate.json",
+    "surfaces/water/coastal-water-temperate.json",
+    "surfaces/water/sea-temperate.json",
+    "surfaces/water/lake-temperate.json",
+    "surfaces/water/ocean-cold.json",
+    "surfaces/water/coastal-water-cold.json",
+    "surfaces/water/sea-cold.json",
+    "surfaces/water/lake-cold.json",
+    "surfaces/water/ocean-tropical.json",
+    "surfaces/water/coastal-water-tropical.json",
+    "surfaces/water/sea-tropical.json",
+    "surfaces/water/lake-tropical.json",
+    "surfaces/land/grassland.json",
+    "surfaces/land/snow.json",
+    "surfaces/land/tundra.json",
+    "surfaces/land/boreal.json",
+    "surfaces/land/steppe.json",
+    "surfaces/land/temperate-wet.json",
+    "surfaces/land/hot-desert.json",
+    "surfaces/land/savanna.json",
+    "surfaces/land/tropical-wet.json",
+    "surfaces/land/alpine.json"
   ]
 }

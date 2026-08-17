@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import type { WorldBaseResponse, WorldGeometryChunk, WorldHex } from '@arcanorum/shared';
 import { getWorldChunk } from '../../../api/world-api.js';
+import { compileTerrainSurfacePlan } from '../visual/compile-terrain-surface-plan.js';
 import { createWorldVisualChunkLayers } from './WorldVisualChunkLayer.js';
 
 type RenderedChunk = {
@@ -143,9 +144,9 @@ function createTilemap(
   if (riverAtlas === undefined) {
     throw new Error('World response does not define a river overlay atlas.');
   }
-  const terrainFrames = new Map(
-    world.geometry.terrain.terrainTypes.map((terrain) => [terrain.id, terrain.frame]),
-  );
+  const terrainSurfacePlan = compileTerrainSurfacePlan(world, chunk);
+  const terrainTileCount = atlas.columns * atlas.rows;
+  const riverFirstGid = terrainTileCount + 1;
   const riverMasks = createRiverMasks(chunk);
   const data = {
     height: chunk.height,
@@ -163,13 +164,7 @@ function createTilemap(
     tilewidth: atlas.frameWidth,
     layers: [
       {
-        data: chunk.hexes.map((hex) => {
-          const frame = terrainFrames.get(hex.terrainId);
-          if (frame === undefined) {
-            throw new Error(`Missing terrain frame: ${hex.terrainId}`);
-          }
-          return frame + 1;
-        }),
+        data: terrainSurfacePlan.tiles.map((tile) => tile.frame + 1),
         height: chunk.height,
         width: chunk.width,
         id: 1,
@@ -181,7 +176,9 @@ function createTilemap(
         y: 0,
       },
       {
-        data: chunk.hexes.map((hex) => (riverMasks.get(`${hex.q}:${hex.r}`) ?? 0) + atlas.columns + 1),
+        data: chunk.hexes.map(
+          (hex) => (riverMasks.get(`${hex.q}:${hex.r}`) ?? 0) + riverFirstGid,
+        ),
         height: chunk.height,
         width: chunk.width,
         id: 2,
@@ -200,18 +197,18 @@ function createTilemap(
         columns: atlas.columns,
         firstgid: 1,
         image: atlas.url,
-        imageheight: atlas.frameHeight,
+        imageheight: atlas.frameHeight * atlas.rows,
         imagewidth: atlas.frameWidth * atlas.columns,
         margin: 0,
         name: 'world-terrain',
         spacing: 0,
-        tilecount: atlas.columns,
+        tilecount: terrainTileCount,
         tileheight: atlas.frameHeight,
         tilewidth: atlas.frameWidth,
       },
       {
         columns: riverAtlas.columns,
-        firstgid: atlas.columns + 1,
+        firstgid: riverFirstGid,
         image: riverAtlas.url,
         imageheight: riverAtlas.frameHeight * riverAtlas.rows,
         imagewidth: riverAtlas.frameWidth * riverAtlas.columns,
@@ -245,7 +242,7 @@ function createTilemap(
       riverAtlas.frameHeight,
       0,
       0,
-      atlas.columns + 1,
+      riverFirstGid,
     ) === null
   ) {
     throw new Error('Chunk could not bind required tilesets.');

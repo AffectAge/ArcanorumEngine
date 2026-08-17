@@ -1,0 +1,27 @@
+{
+  "id": "feature.forest_tropical",
+  "layerId": "layer.vegetation",
+  "priority": 10,
+  "when": {
+    "all": [
+      { "fact": "hex.terrain_role", "operator": "eq", "value": "land" },
+      { "fact": "hex.elevation", "operator": "lte", "value": 740 },
+      { "fact": "hex.temperature", "operator": "gte", "value": 700 },
+      { "fact": "environment.wetness", "operator": "gte", "value": 600 },
+      { "fact": "environment.swamp_potential", "operator": "lte", "value": 349 }
+    ]
+  },
+  "intensity": { "type": "fact", "fact": "environment.wetness" },
+  "renderer": {
+    "type": "scatter",
+    "assetId": "asset.forest_tropical",
+    "candidateCount": 15,
+    "scalePermille": 380,
+    "originY": 0.85,
+    "densitySteps": [
+      { "min": 600, "count": 6 },
+      { "min": 750, "count": 10 },
+      { "min": 900, "count": 15 }
+    ]
+  }
+}

@@ -15,6 +15,16 @@
         "value": 740
       },
       {
+        "fact": "hex.temperature",
+        "operator": "gte",
+        "value": 481
+      },
+      {
+        "fact": "hex.temperature",
+        "operator": "lte",
+        "value": 699
+      },
+      {
         "fact": "environment.vegetation_potential",
         "operator": "gte",
         "value": 300
@@ -34,7 +44,7 @@
     "type": "scatter",
     "assetId": "asset.forest",
     "candidateCount": 15,
-    "scalePermille": 430,
+    "scalePermille": 380,
     "originY": 0.85,
     "densitySteps": [
       {

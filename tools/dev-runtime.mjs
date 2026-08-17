@@ -121,7 +121,7 @@ function portIsOpen(port) {
   });
 }
 
-async function waitForPort(port, label, child, timeoutMilliseconds = 15_000) {
+async function waitForPort(port, label, child, timeoutMilliseconds = 60_000) {
   const deadline = Date.now() + timeoutMilliseconds;
 
   while (Date.now() < deadline) {

@@ -1,0 +1,14 @@
+{
+  "id": "surface.land.alpine",
+  "priority": 450,
+  "when": {
+    "all": [
+      { "fact": "hex.terrain_kind", "operator": "eq", "value": "land" },
+      { "fact": "hex.elevation", "operator": "gte", "value": 740 }
+    ]
+  },
+  "variants": [
+    { "id": "tile.land.alpine.01", "frame": 30, "weight": 3 },
+    { "id": "tile.land.alpine.02", "frame": 31, "weight": 2 }
+  ]
+}

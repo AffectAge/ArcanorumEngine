@@ -4,7 +4,8 @@
     "url": "/assets/world/terrain/terrain-atlas.webp",
     "frameWidth": 96,
     "frameHeight": 84,
-    "columns": 5
+    "columns": 4,
+    "rows": 8
   },
   "terrainTypes": [
     {
@@ -33,7 +34,7 @@
     },
     {
       "id": "terrain.land",
-      "frame": 4,
+      "frame": 12,
       "category": "land",
       "role": "land"
     }

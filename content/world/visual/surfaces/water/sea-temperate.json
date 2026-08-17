@@ -1,0 +1,8 @@
+{
+  "id": "surface.water.sea_temperate",
+  "priority": 0,
+  "when": { "all": [{ "fact": "hex.terrain_kind", "operator": "eq", "value": "sea" }] },
+  "variants": [
+    { "id": "tile.water.sea_temperate", "frame": 2, "weight": 1 }
+  ]
+}

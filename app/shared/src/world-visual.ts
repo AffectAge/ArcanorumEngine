@@ -9,6 +9,7 @@ const SourceFactIdSchema = z.enum([
   'hex.rainfall',
   'hex.flow_accumulation',
   'hex.terrain_role',
+  'hex.terrain_kind',
   'neighbor.ruggedness',
 ]);
 
@@ -95,7 +96,10 @@ export const WorldVisualConditionSchema = z
   .object({
     fact: WorldVisualFactIdSchema,
     operator: z.enum(['eq', 'gte', 'lte']),
-    value: z.union([VisualScoreSchema, z.enum(['land', 'water'])]),
+    value: z.union([
+      VisualScoreSchema,
+      z.enum(['land', 'water', 'ocean', 'coastal_water', 'sea', 'lake']),
+    ]),
   })
   .strict();
 
@@ -196,16 +200,44 @@ export const WorldVisualFeatureSchema = z
 
 export type WorldVisualFeature = z.infer<typeof WorldVisualFeatureSchema>;
 
+export const WorldVisualSurfaceVariantSchema = z
+  .object({
+    id: StableIdSchema,
+    frame: z.number().int().nonnegative(),
+    weight: z.number().int().positive().max(1000),
+  })
+  .strict();
+
+export type WorldVisualSurfaceVariant = z.infer<typeof WorldVisualSurfaceVariantSchema>;
+
+export const WorldVisualSurfaceSchema = z
+  .object({
+    id: StableIdSchema,
+    priority: z.number().int().min(0).max(1000),
+    when: WorldVisualConditionGroupSchema,
+    variants: z.array(WorldVisualSurfaceVariantSchema).min(1),
+  })
+  .strict();
+
+export type WorldVisualSurface = z.infer<typeof WorldVisualSurfaceSchema>;
+
 export const WorldVisualCatalogManifestSchema = z
   .object({
     layers: z.array(z.string().regex(/^[a-z0-9][a-z0-9_/-]*\.json$/)).min(1),
     assets: z.array(z.string().regex(/^[a-z0-9][a-z0-9_/-]*\.json$/)).min(1),
     signals: z.array(z.string().regex(/^[a-z0-9][a-z0-9_/-]*\.json$/)).min(1),
     features: z.array(z.string().regex(/^[a-z0-9][a-z0-9_/-]*\.json$/)).min(1),
+    surfaces: z.array(z.string().regex(/^[a-z0-9][a-z0-9_/-]*\.json$/)).min(1),
   })
   .strict()
   .superRefine((manifest, context) => {
-    const paths = [...manifest.layers, ...manifest.assets, ...manifest.signals, ...manifest.features];
+    const paths = [
+      ...manifest.layers,
+      ...manifest.assets,
+      ...manifest.signals,
+      ...manifest.features,
+      ...manifest.surfaces,
+    ];
     const duplicate = paths.find((path, index) => paths.indexOf(path) !== index);
     if (duplicate !== undefined) {
       context.addIssue({
@@ -223,6 +255,7 @@ export const WorldVisualCatalogSchema = z
     assets: z.array(WorldVisualAssetSchema).min(1),
     signals: z.array(WorldVisualSignalSchema).min(1),
     features: z.array(WorldVisualFeatureSchema).min(1),
+    surfaces: z.array(WorldVisualSurfaceSchema).min(1),
   })
   .strict()
   .superRefine((catalog, context) => {
@@ -230,6 +263,7 @@ export const WorldVisualCatalogSchema = z
     validateUniqueIds(catalog.assets, 'assets', context);
     validateUniqueIds(catalog.signals, 'signals', context);
     validateUniqueIds(catalog.features, 'features', context);
+    validateUniqueIds(catalog.surfaces, 'surfaces', context);
 
     const layerIds = new Set(catalog.layers.map((layer) => layer.id));
     const assetIds = new Set(catalog.assets.map((asset) => asset.id));
@@ -240,6 +274,7 @@ export const WorldVisualCatalogSchema = z
       'hex.rainfall',
       'hex.flow_accumulation',
       'hex.terrain_role',
+      'hex.terrain_kind',
       'neighbor.ruggedness',
       ...signalIds,
     ]);
@@ -265,44 +300,27 @@ export const WorldVisualCatalogSchema = z
           message: `Visual feature references missing asset: ${feature.renderer.assetId}`,
         });
       }
-      for (const [conditionIndex, condition] of feature.when.all.entries()) {
-        const path = ['features', index, 'when', 'all', conditionIndex] as const;
-        if (!knownFacts.has(condition.fact)) {
-          context.addIssue({
-            code: z.ZodIssueCode.custom,
-            path: [...path, 'fact'],
-            message: `Visual feature references missing fact: ${condition.fact}`,
-          });
-          continue;
-        }
-        const terrainRole = condition.fact === 'hex.terrain_role';
-        if (terrainRole && condition.operator !== 'eq') {
-          context.addIssue({
-            code: z.ZodIssueCode.custom,
-            path: [...path, 'operator'],
-            message: 'hex.terrain_role supports only the eq operator.',
-          });
-        }
-        if (terrainRole && typeof condition.value !== 'string') {
-          context.addIssue({
-            code: z.ZodIssueCode.custom,
-            path: [...path, 'value'],
-            message: 'hex.terrain_role comparisons require a land or water value.',
-          });
-        }
-        if (!terrainRole && typeof condition.value !== 'number') {
-          context.addIssue({
-            code: z.ZodIssueCode.custom,
-            path: [...path, 'value'],
-            message: 'Numeric visual facts require an integer score value.',
-          });
-        }
-      }
+      validateConditions(feature.when, knownFacts, context, ['features', index, 'when']);
       if (feature.intensity !== undefined) {
         validateExpressionFacts(feature.intensity, knownFacts, context, ['features', index, 'intensity']);
       }
       if (feature.renderer.type === 'scatter') {
         validateScatterDensitySteps(feature.renderer, context, ['features', index, 'renderer']);
+      }
+    }
+
+    const variantIds = new Set<string>();
+    for (const [index, surface] of catalog.surfaces.entries()) {
+      validateConditions(surface.when, knownFacts, context, ['surfaces', index, 'when']);
+      for (const [variantIndex, variant] of surface.variants.entries()) {
+        if (variantIds.has(variant.id)) {
+          context.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['surfaces', index, 'variants', variantIndex, 'id'],
+            message: `Duplicate visual surface variant ID: ${variant.id}`,
+          });
+        }
+        variantIds.add(variant.id);
       }
     }
   });
@@ -311,7 +329,7 @@ export type WorldVisualCatalog = z.infer<typeof WorldVisualCatalogSchema>;
 
 function validateUniqueIds(
   records: readonly { readonly id: string }[],
-  field: 'layers' | 'assets' | 'signals' | 'features',
+  field: 'layers' | 'assets' | 'signals' | 'features' | 'surfaces',
   context: z.RefinementCtx,
 ): void {
   const ids = new Set<string>();
@@ -327,6 +345,63 @@ function validateUniqueIds(
   }
 }
 
+function validateConditions(
+  group: WorldVisualConditionGroup,
+  knownFacts: ReadonlySet<string>,
+  context: z.RefinementCtx,
+  path: readonly (string | number)[],
+): void {
+  for (const [conditionIndex, condition] of group.all.entries()) {
+    const conditionPath = [...path, 'all', conditionIndex] as const;
+    if (!knownFacts.has(condition.fact)) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: [...conditionPath, 'fact'],
+        message: `Visual rule references missing fact: ${condition.fact}`,
+      });
+      continue;
+    }
+
+    const terrainRole = condition.fact === 'hex.terrain_role';
+    const terrainKind = condition.fact === 'hex.terrain_kind';
+    if ((terrainRole || terrainKind) && condition.operator !== 'eq') {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: [...conditionPath, 'operator'],
+        message: `${condition.fact} supports only the eq operator.`,
+      });
+    }
+    if (
+      terrainRole &&
+      condition.value !== 'land' &&
+      condition.value !== 'water'
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: [...conditionPath, 'value'],
+        message: 'hex.terrain_role comparisons require a land or water value.',
+      });
+    }
+    if (
+      terrainKind &&
+      !['land', 'ocean', 'coastal_water', 'sea', 'lake'].includes(String(condition.value))
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: [...conditionPath, 'value'],
+        message: 'hex.terrain_kind comparisons require a terrain kind value.',
+      });
+    }
+    if (!terrainRole && !terrainKind && typeof condition.value !== 'number') {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: [...conditionPath, 'value'],
+        message: 'Numeric visual facts require an integer score value.',
+      });
+    }
+  }
+}
+
 function validateExpressionFacts(
   expression: WorldVisualExpression,
   knownFacts: ReadonlySet<string>,
@@ -337,7 +412,11 @@ function validateExpressionFacts(
     case 'constant':
       return;
     case 'fact':
-      if (!knownFacts.has(expression.fact) || expression.fact === 'hex.terrain_role') {
+      if (
+        !knownFacts.has(expression.fact) ||
+        expression.fact === 'hex.terrain_role' ||
+        expression.fact === 'hex.terrain_kind'
+      ) {
         context.addIssue({
           code: z.ZodIssueCode.custom,
           path: [...path, 'fact'],

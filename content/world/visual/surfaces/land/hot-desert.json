@@ -1,0 +1,15 @@
+{
+  "id": "surface.land.hot_desert",
+  "priority": 400,
+  "when": {
+    "all": [
+      { "fact": "hex.terrain_kind", "operator": "eq", "value": "land" },
+      { "fact": "hex.temperature", "operator": "gte", "value": 700 },
+      { "fact": "environment.wetness", "operator": "lte", "value": 250 }
+    ]
+  },
+  "variants": [
+    { "id": "tile.land.hot_desert.01", "frame": 24, "weight": 3 },
+    { "id": "tile.land.hot_desert.02", "frame": 25, "weight": 2 }
+  ]
+}

@@ -16,6 +16,19 @@ describe('visual catalog loader', () => {
       'feature.snow_mountain',
       'feature.swamp',
       'feature.forest',
+      'feature.forest_boreal',
+      'feature.forest_tropical',
     ]);
+    expect(loaded.catalog.assets.map((asset) => asset.id)).toContain('asset.forest_boreal');
+    expect(loaded.catalog.assets.map((asset) => asset.id)).toContain('asset.forest_tropical');
+    expect(loaded.catalog.surfaces).toHaveLength(22);
+    expect(loaded.catalog.surfaces.map((surface) => surface.id)).toEqual(
+      expect.arrayContaining([
+        'surface.land.hot_desert',
+        'surface.land.tropical_wet',
+        'surface.water.ocean_cold',
+        'surface.water.coastal_water_tropical',
+      ]),
+    );
   });
 });

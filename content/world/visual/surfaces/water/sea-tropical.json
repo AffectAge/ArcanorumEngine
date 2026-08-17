@@ -1,0 +1,13 @@
+{
+  "id": "surface.water.sea_tropical",
+  "priority": 100,
+  "when": {
+    "all": [
+      { "fact": "hex.terrain_kind", "operator": "eq", "value": "sea" },
+      { "fact": "hex.temperature", "operator": "gte", "value": 700 }
+    ]
+  },
+  "variants": [
+    { "id": "tile.water.sea_tropical", "frame": 10, "weight": 1 }
+  ]
+}

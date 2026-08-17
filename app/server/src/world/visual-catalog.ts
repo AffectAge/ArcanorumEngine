@@ -8,6 +8,7 @@ import {
   WorldVisualFeatureSchema,
   WorldVisualLayerSchema,
   WorldVisualSignalSchema,
+  WorldVisualSurfaceSchema,
   type WorldVisualCatalog,
 } from '@arcanorum/shared';
 import { PROJECT_ROOT } from '../config.js';
@@ -54,8 +55,19 @@ export function loadVisualCatalog(): LoadedVisualCatalog {
     fingerprintParts.push(source);
     return parseJson(source, resolved, WorldVisualFeatureSchema);
   });
-
-  const catalog = WorldVisualCatalogSchema.parse({ layers, assets, signals, features });
+  const surfaces = manifest.surfaces.map((path) => {
+    const resolved = resolveCatalogPath(path);
+    const source = readRequiredFile(resolved, `visual surface ${path}`);
+    fingerprintParts.push(source);
+    return parseJson(source, resolved, WorldVisualSurfaceSchema);
+  });
+  const catalog = WorldVisualCatalogSchema.parse({
+    layers,
+    assets,
+    signals,
+    features,
+    surfaces,
+  });
   for (const asset of catalog.assets) {
     const assetPath = resolve(CLIENT_PUBLIC_PATH, `.${asset.url}`);
     const assetRelativePath = relative(CLIENT_PUBLIC_PATH, assetPath);

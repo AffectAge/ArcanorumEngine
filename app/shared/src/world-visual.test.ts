@@ -14,6 +14,14 @@ const catalog = {
       renderer: { type: 'sprite', assetId: 'asset.mountain', scalePermille: 1000 },
     },
   ],
+  surfaces: [
+    {
+      id: 'surface.land.default',
+      priority: 0,
+      when: { all: [{ fact: 'hex.terrain_kind', operator: 'eq', value: 'land' }] },
+      variants: [{ id: 'tile.land.default', frame: 0, weight: 1 }],
+    },
+  ],
 };
 
 describe('WorldVisualCatalogSchema', () => {
@@ -58,6 +66,23 @@ describe('WorldVisualCatalogSchema', () => {
         {
           ...catalog.features[0]!,
           when: { all: [{ fact: 'environment.first', operator: 'gte', value: 1 }] },
+        },
+      ],
+    };
+
+    expect(WorldVisualCatalogSchema.safeParse(invalid).success).toBe(false);
+  });
+
+  it('rejects invalid categorical conditions and duplicate surface variant IDs', () => {
+    const invalid = {
+      ...catalog,
+      surfaces: [
+        ...catalog.surfaces,
+        {
+          id: 'surface.water.invalid',
+          priority: 1,
+          when: { all: [{ fact: 'hex.terrain_kind', operator: 'eq', value: 'water' }] },
+          variants: [{ id: 'tile.land.default', frame: 1, weight: 1 }],
         },
       ],
     };

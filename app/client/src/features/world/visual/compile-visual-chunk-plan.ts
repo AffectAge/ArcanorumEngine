@@ -1,10 +1,13 @@
 import type {
   WorldBaseResponse,
   WorldGeometryChunk,
-  WorldVisualCatalog,
-  WorldVisualExpression,
   WorldVisualFeature,
 } from '@arcanorum/shared';
+import { hashWorldVisualValue } from './deterministic-visual-hash.js';
+import {
+  createHexWorldVisualFactResolver,
+  matchesWorldVisualConditions,
+} from './world-visual-facts.js';
 
 export type VisualChunkSprite = {
   readonly featureId: string;
@@ -47,9 +50,7 @@ type MutableVisualChunkLayerPlan = {
  */
 export function compileVisualChunkPlan(world: WorldBaseResponse, chunk: WorldGeometryChunk): VisualChunkPlan {
   const catalog = world.geometry.visuals;
-  const terrainCategoryById = new Map(
-    world.geometry.terrain.terrainTypes.map((terrain) => [terrain.id, terrain.category]),
-  );
+  const terrainById = new Map(world.geometry.terrain.terrainTypes.map((terrain) => [terrain.id, terrain]));
   const hexByCoordinate = new Map(
     [...chunk.hexes, ...chunk.visualNeighbors].map((hex) => [`${hex.q}:${hex.r}`, hex]),
   );
@@ -59,21 +60,14 @@ export function compileVisualChunkPlan(world: WorldBaseResponse, chunk: WorldGeo
   const groups = new Map<string, MutableVisualChunkLayerPlan>();
 
   for (const hex of chunk.hexes) {
-    const terrainCategory = terrainCategoryById.get(hex.terrainId);
-    if (terrainCategory === undefined) {
+    const terrain = terrainById.get(hex.terrainId);
+    if (terrain === undefined) {
       throw new Error(`Visual feature compilation is missing terrain metadata for ${hex.terrainId}.`);
     }
-    const facts = createFactResolver(catalog, {
-      'hex.elevation': hex.elevation,
-      'hex.temperature': hex.temperature,
-      'hex.rainfall': hex.rainfall,
-      'hex.flow_accumulation': clampScore(hex.flowAccumulation),
-      'hex.terrain_role': terrainCategory,
-      'neighbor.ruggedness': resolveRuggedness(hex.q, hex.r, hex.elevation, hexByCoordinate),
-    });
+    const facts = createHexWorldVisualFactResolver(catalog, hex, terrain, hexByCoordinate);
 
     for (const feature of features) {
-      if (!matchesFeature(feature, facts)) {
+      if (!matchesWorldVisualConditions(feature.when, facts)) {
         continue;
       }
       const layer = layerById.get(feature.layerId);
@@ -127,125 +121,6 @@ export function compileVisualChunkPlan(world: WorldBaseResponse, chunk: WorldGeo
   };
 }
 
-function resolveRuggedness(
-  q: number,
-  r: number,
-  elevation: number,
-  hexByCoordinate: ReadonlyMap<string, { readonly elevation: number }>,
-): number {
-  const offsets: ReadonlyArray<readonly [number, number]> =
-    q % 2 === 0
-      ? [
-          [0, -1],
-          [1, -1],
-          [1, 0],
-          [0, 1],
-          [-1, 0],
-          [-1, -1],
-        ]
-      : [
-          [0, -1],
-          [1, 0],
-          [1, 1],
-          [0, 1],
-          [-1, 1],
-          [-1, 0],
-        ];
-  const maximumDifference = Math.max(
-    0,
-    ...offsets.map(([offsetQ, offsetR]) => {
-      const neighbor = hexByCoordinate.get(`${q + offsetQ}:${r + offsetR}`);
-      return neighbor === undefined ? 0 : Math.abs(elevation - neighbor.elevation);
-    }),
-  );
-  return clampScore(maximumDifference * 8);
-}
-
-function createFactResolver(
-  catalog: WorldVisualCatalog,
-  sourceFacts: Readonly<Record<string, number | 'land' | 'water'>>,
-): {
-  readonly value: (factId: string) => number | 'land' | 'water';
-  readonly number: (expression: WorldVisualExpression) => number;
-} {
-  const signalById = new Map(catalog.signals.map((signal) => [signal.id, signal.expression]));
-  const resolved = new Map<string, number | 'land' | 'water'>();
-  const resolving = new Set<string>();
-
-  function value(factId: string): number | 'land' | 'water' {
-    const source = sourceFacts[factId];
-    if (source !== undefined) {
-      return source;
-    }
-    const cached = resolved.get(factId);
-    if (cached !== undefined) {
-      return cached;
-    }
-    const expression = signalById.get(factId);
-    if (expression === undefined) {
-      throw new Error(`Visual rule references an unknown fact: ${factId}`);
-    }
-    if (resolving.has(factId)) {
-      throw new Error(`Visual signal dependency cycle includes ${factId}.`);
-    }
-    resolving.add(factId);
-    const result = number(expression);
-    resolving.delete(factId);
-    resolved.set(factId, result);
-    return result;
-  }
-
-  function number(expression: WorldVisualExpression): number {
-    switch (expression.type) {
-      case 'constant':
-        return expression.value;
-      case 'fact': {
-        const result = value(expression.fact);
-        if (typeof result !== 'number') {
-          throw new Error(`Visual expression requires numeric fact: ${expression.fact}`);
-        }
-        return result;
-      }
-      case 'add':
-        return clampScore(expression.values.reduce((sum, value) => sum + number(value), 0));
-      case 'multiply':
-        return expression.values.reduce((product, value) => multiplyScores(product, number(value)), 1000);
-      case 'subtract':
-        return clampScore(number(expression.left) - number(expression.right));
-      case 'remap': {
-        const input = number(expression.value);
-        if (input <= expression.inputMin) {
-          return 0;
-        }
-        if (input >= expression.inputMax) {
-          return 1000;
-        }
-        return Math.floor(
-          ((input - expression.inputMin) * 1000) / (expression.inputMax - expression.inputMin),
-        );
-      }
-      case 'clamp':
-        return Math.max(expression.min, Math.min(expression.max, number(expression.value)));
-    }
-  }
-
-  return { value, number };
-}
-
-function matchesFeature(feature: WorldVisualFeature, facts: ReturnType<typeof createFactResolver>): boolean {
-  return feature.when.all.every((condition) => {
-    const actual = facts.value(condition.fact);
-    switch (condition.operator) {
-      case 'eq':
-        return actual === condition.value;
-      case 'gte':
-        return typeof actual === 'number' && typeof condition.value === 'number' && actual >= condition.value;
-      case 'lte':
-        return typeof actual === 'number' && typeof condition.value === 'number' && actual <= condition.value;
-    }
-  });
-}
-
 function resolveScatterCount(
   steps: readonly { readonly min: number; readonly count: number }[],
   intensity: number,
@@ -274,12 +149,15 @@ function createScatterSprite(
   const width = world.geometry.terrain.atlas.frameWidth;
   const height = world.geometry.terrain.atlas.frameHeight;
   const offsetX = Math.floor(
-    (((hashVisualValue(world.seed, q, r, feature.id, candidate, 'x') % 1001) - 500) * width) / 2500,
+    (((hashWorldVisualValue(world.seed, q, r, feature.id, candidate, 'x') % 1001) - 500) * width) /
+      2500,
   );
   const offsetY = Math.floor(
-    (((hashVisualValue(world.seed, q, r, feature.id, candidate, 'y') % 1001) - 500) * height) / 3800,
+    (((hashWorldVisualValue(world.seed, q, r, feature.id, candidate, 'y') % 1001) - 500) * height) /
+      3800,
   );
-  const scaleVariation = (hashVisualValue(world.seed, q, r, feature.id, candidate, 'scale') % 161) - 80;
+  const scaleVariation =
+    (hashWorldVisualValue(world.seed, q, r, feature.id, candidate, 'scale') % 161) - 80;
 
   return {
     featureId: feature.id,
@@ -294,36 +172,6 @@ function createScatterSprite(
     alphaPermille: feature.renderer.alphaPermille,
     tint: feature.renderer.tint,
   };
-}
-
-function hashVisualValue(
-  worldSeed: string,
-  q: number,
-  r: number,
-  featureId: string,
-  candidate: number,
-  axis: 'x' | 'y' | 'scale',
-): number {
-  const value = `${worldSeed}|${q}|${r}|${featureId}|${candidate}|${axis}`;
-  let hash = 2166136261;
-  for (let index = 0; index < value.length; index += 1) {
-    const codePoint = value.charCodeAt(index);
-    hash ^= codePoint;
-    hash = Math.imul(hash, 16777619);
-  }
-  hash ^= hash >>> 16;
-  hash = Math.imul(hash, 0x7feb352d);
-  hash ^= hash >>> 15;
-  hash = Math.imul(hash, 0x846ca68b);
-  return (hash ^ (hash >>> 16)) >>> 0;
-}
-
-function multiplyScores(left: number, right: number): number {
-  return Math.floor((left * right) / 1000);
-}
-
-function clampScore(value: number): number {
-  return Math.max(0, Math.min(1000, value));
 }
 
 function compareFeatures(left: WorldVisualFeature, right: WorldVisualFeature): number {

@@ -1,0 +1,13 @@
+{
+  "id": "surface.water.sea_cold",
+  "priority": 100,
+  "when": {
+    "all": [
+      { "fact": "hex.terrain_kind", "operator": "eq", "value": "sea" },
+      { "fact": "hex.temperature", "operator": "lte", "value": 350 }
+    ]
+  },
+  "variants": [
+    { "id": "tile.water.sea_cold", "frame": 6, "weight": 1 }
+  ]
+}

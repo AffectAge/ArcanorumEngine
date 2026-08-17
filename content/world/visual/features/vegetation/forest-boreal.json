@@ -1,0 +1,28 @@
+{
+  "id": "feature.forest_boreal",
+  "layerId": "layer.vegetation",
+  "priority": 10,
+  "when": {
+    "all": [
+      { "fact": "hex.terrain_role", "operator": "eq", "value": "land" },
+      { "fact": "hex.elevation", "operator": "lte", "value": 740 },
+      { "fact": "hex.temperature", "operator": "gte", "value": 321 },
+      { "fact": "hex.temperature", "operator": "lte", "value": 480 },
+      { "fact": "environment.wetness", "operator": "gte", "value": 450 },
+      { "fact": "environment.swamp_potential", "operator": "lte", "value": 349 }
+    ]
+  },
+  "intensity": { "type": "fact", "fact": "environment.vegetation_potential" },
+  "renderer": {
+    "type": "scatter",
+    "assetId": "asset.forest_boreal",
+    "candidateCount": 15,
+    "scalePermille": 380,
+    "originY": 0.85,
+    "densitySteps": [
+      { "min": 300, "count": 5 },
+      { "min": 500, "count": 9 },
+      { "min": 700, "count": 15 }
+    ]
+  }
+}

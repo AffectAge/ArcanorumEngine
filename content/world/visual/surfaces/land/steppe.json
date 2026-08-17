@@ -1,0 +1,16 @@
+{
+  "id": "surface.land.steppe",
+  "priority": 310,
+  "when": {
+    "all": [
+      { "fact": "hex.terrain_kind", "operator": "eq", "value": "land" },
+      { "fact": "hex.temperature", "operator": "gte", "value": 321 },
+      { "fact": "hex.temperature", "operator": "lte", "value": 699 },
+      { "fact": "environment.wetness", "operator": "lte", "value": 300 }
+    ]
+  },
+  "variants": [
+    { "id": "tile.land.steppe.01", "frame": 20, "weight": 3 },
+    { "id": "tile.land.steppe.02", "frame": 21, "weight": 2 }
+  ]
+}

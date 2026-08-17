@@ -1,0 +1,8 @@
+{
+  "id": "surface.water.coastal_water_temperate",
+  "priority": 0,
+  "when": { "all": [{ "fact": "hex.terrain_kind", "operator": "eq", "value": "coastal_water" }] },
+  "variants": [
+    { "id": "tile.water.coastal_water_temperate", "frame": 1, "weight": 1 }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "id": "surface.water.lake_tropical",
+  "priority": 100,
+  "when": {
+    "all": [
+      { "fact": "hex.terrain_kind", "operator": "eq", "value": "lake" },
+      { "fact": "hex.temperature", "operator": "gte", "value": 700 }
+    ]
+  },
+  "variants": [
+    { "id": "tile.water.lake_tropical", "frame": 11, "weight": 1 }
+  ]
+}

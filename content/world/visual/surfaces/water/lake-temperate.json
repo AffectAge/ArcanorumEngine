@@ -1,0 +1,8 @@
+{
+  "id": "surface.water.lake_temperate",
+  "priority": 0,
+  "when": { "all": [{ "fact": "hex.terrain_kind", "operator": "eq", "value": "lake" }] },
+  "variants": [
+    { "id": "tile.water.lake_temperate", "frame": 3, "weight": 1 }
+  ]
+}

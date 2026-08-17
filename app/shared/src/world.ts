@@ -10,6 +10,7 @@ export const TerrainAtlasSchema = z
     frameWidth: z.number().int().positive(),
     frameHeight: z.number().int().positive(),
     columns: z.number().int().positive(),
+    rows: z.number().int().positive(),
   })
   .strict();
 
@@ -78,10 +79,10 @@ export const TerrainCatalogSchema = z
       }
       roles.add(terrainType.role);
 
-      if (terrainType.frame >= catalog.atlas.columns) {
+      if (terrainType.frame >= catalog.atlas.columns * catalog.atlas.rows) {
         context.addIssue({
           code: z.ZodIssueCode.custom,
-          message: `Terrain frame ${terrainType.frame} exceeds atlas columns.`,
+          message: `Terrain frame ${terrainType.frame} exceeds the atlas frame count.`,
           path: ['terrainTypes'],
         });
       }
@@ -209,7 +210,21 @@ export const WorldGeometrySchema = z
     terrain: TerrainCatalogSchema,
     visuals: WorldVisualCatalogSchema,
   })
-  .strict();
+  .strict()
+  .superRefine((geometry, context) => {
+    const frameCount = geometry.terrain.atlas.columns * geometry.terrain.atlas.rows;
+    for (const [surfaceIndex, surface] of geometry.visuals.surfaces.entries()) {
+      for (const [variantIndex, variant] of surface.variants.entries()) {
+        if (variant.frame >= frameCount) {
+          context.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['visuals', 'surfaces', surfaceIndex, 'variants', variantIndex, 'frame'],
+            message: `Surface frame ${variant.frame} exceeds the terrain atlas frame count.`,
+          });
+        }
+      }
+    }
+  });
 
 export type WorldGeometry = z.infer<typeof WorldGeometrySchema>;
 
